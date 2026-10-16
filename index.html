@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Let's Go Fishing - Gem Upgrade Optimizer</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<header>
+  <h1>Let's Go Fishing <span class="sub">Gem Upgrade Optimizer</span></h1>
+  <p class="tagline">Ranks every fishing gem upgrade by how much fish/time it adds per gem spent. Import your
+    <code>ExportStats</code> JSON to fill everything automatically.</p>
+</header>
+
+<main>
+  <section class="panel">
+    <h2>1. Import your stats</h2>
+    <div class="import-controls">
+      <input type="file" id="import-file" accept=".json,application/json">
+      <button id="btn-sample" type="button">Load sample</button>
+      <button id="btn-parse" type="button">Parse pasted JSON</button>
+      <button id="btn-clear" type="button">Reset</button>
+    </div>
+    <textarea id="import-text" placeholder="Paste ExportStats JSON here, or drag a .json file onto the page..."></textarea>
+    <div id="import-status" class="import-status"></div>
+    <details>
+      <summary>How to get this file</summary>
+      <p>In the game, open <em>Settings &rarr; Export Stats</em> (or the equivalent ExportStats button), copy the
+        text, and paste it above. Everything the game records is mapped automatically; anything it does not
+        record is left for you to fill in by hand below.</p>
+    </details>
+  </section>
+
+  <section class="panel">
+    <h2>2. Settings</h2>
+    <div id="settings" class="grid"></div>
+  </section>
+
+  <section class="panel">
+    <h2>3. Upgrade levels</h2>
+    <div id="upgrades"></div>
+  </section>
+
+  <section class="panel">
+    <h2>4. Fish cards (per dock)</h2>
+    <div id="cards"></div>
+  </section>
+
+  <section class="panel">
+    <h2>5. Other bonuses</h2>
+    <div id="scalars"></div>
+  </section>
+
+  <section class="panel results-panel">
+    <h2>6. Ranking</h2>
+    <div id="results"></div>
+  </section>
+</main>
+
+<footer>
+  <p>Model ported from the community Google Sheet <em>Let's Go Fishing - V2.0.6</em>.
+    Not affiliated with the game. Verify against the sheet before committing gems.</p>
+</footer>
+
+<script src="model.js"></script>
+<script src="data.js"></script>
+<script src="exportstats.js"></script>
+<script src="sample.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

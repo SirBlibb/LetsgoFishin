@@ -30,7 +30,7 @@ function fire(node, type) {
 
 function rowsOf() {
   var results = byId["results"];
-  var table = results.children[results.children.length - 2];
+  var table = results.children[results.children.length - 2].children[0]; // .table-scroll > table
   return table.children[1].children;
 }
 

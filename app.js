@@ -52,6 +52,13 @@
     return e;
   }
 
+  // wide tables scroll sideways on narrow screens instead of stretching the page
+  function scrollWrap(table) {
+    var w = el("div", "table-scroll");
+    w.appendChild(table);
+    return w;
+  }
+
   /* ---------------------------------------------------------------- */
   /* settings                                                         */
   /* ---------------------------------------------------------------- */
@@ -182,7 +189,7 @@
       tbody.appendChild(tr);
     });
     table.appendChild(tbody);
-    root.appendChild(table);
+    root.appendChild(scrollWrap(table));
     root.appendChild(el("p", "hint", "Numbers are the ExportStats values: cards 0-4 (None/Base/Gilded/Polychrome/Infernal), tribute 0-3."));
   }
 
@@ -371,7 +378,7 @@
         tbody.appendChild(tr);
       });
     table.appendChild(tbody);
-    root.appendChild(table);
+    root.appendChild(scrollWrap(table));
     root.appendChild(el("p", "hint",
       "Ranked by " + (model.expMode ? "growth per 100,000 gems (exponential)" : "(new fish/time - current fish/time) / gem cost") +
       ". Lower gem cost + higher growth = better. Press +1 on a row to spend that upgrade's gems and see how the ranking moves."));

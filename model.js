@@ -510,6 +510,87 @@
   }
 
   /* ------------------------------------------------------------------ */
+  /* Fish-purchased upgrades (rows 3-20 of the sheet)                   */
+  /* ------------------------------------------------------------------ */
+
+  // Data comes from fishcosts.js (window.FISH_DATA). Absent on pages /
+  // tests that only load model.js, in which case no fish rows are produced.
+  var FISH_GATE_NAMES = { 5: "Upgrade Boat", 15: "Upgrade Tier 2 Boat" };
+
+  // "Effort" of buying one fish-costed level: how many "Guppy-equivalents"
+  // the price is worth, using the wiki power rating as catch difficulty.
+  function fishEffort(cost, power) {
+    if (!cost) return null;
+    var rating = num(power[cost[1]]) || 1;
+    return cost[0] * rating;
+  }
+
+  function computeFishRows(inputs, base) {
+    var FD = global.FISH_DATA;
+    if (!FD || !FD.upgrades) return [];
+
+    var rows = FD.upgrades.map(function (up) {
+      var lvl = Math.max(0, rd(num(inputs.G[up.row])));
+      var maxed = lvl >= up.max;
+
+      var gate = null;
+      if (up.gateRow && num(inputs.G[up.gateRow]) < up.gateLevel) {
+        gate = "Requires " + (FISH_GATE_NAMES[up.gateRow] || ("row " + up.gateRow)) +
+               " \u2265 " + up.gateLevel;
+      }
+
+      var cost = (!maxed && !gate) ? (up.costs[lvl] || null) : null;
+      var ay = null, growth = null, effort = null, score = null;
+
+      if (cost) {
+        var sim = JSON.parse(JSON.stringify(inputs));
+        sim.G[up.row] = lvl + 1;
+        ay = computeHelpers(sim).AI34;
+        if (ay !== null && isFinite(ay)) {
+          growth = ay / base - 1;
+          effort = fishEffort(cost, FD.power);
+          // Boat levels do not feed the fish/time math themselves: they only
+          // unlock other upgrades, so they are shown as info, not ranked.
+          if (isFinite(growth) && effort > 0 && ay !== base) score = (ay - base) / effort;
+        }
+      }
+
+      return {
+        row: up.row,
+        name: up.name,
+        max: up.max,
+        level: lvl,
+        count: cost ? cost[0] : null,
+        fish: cost ? cost[1] : null,
+        fishPower: cost ? (num(FD.power[cost[1]]) || 1) : null,
+        effort: effort,
+        newFishTime: ay,
+        growth: growth,
+        score: score,
+        rank: null,
+        blocked: maxed ? "Maxed"
+          : gate ? gate
+          : !cost ? "No cost data"
+          : (score === null ? "No direct fish/time change (unlocks upgrades)" : null),
+        rankable: score !== null && isFinite(score)
+      };
+    });
+
+    rows.filter(function (r) { return r.rankable; })
+      .sort(function (a, b) { return b.score - a.score; })
+      .forEach(function (r, i) { r.rank = i + 1; });
+
+    return rows;
+  }
+
+  // Lightweight entry point for tests / console use.
+  function computeFishModel(rawInputs) {
+    var inputs = rawInputs || defaultInputs();
+    var h = computeHelpers(inputs);
+    return { base: h.AI34, rows: computeFishRows(inputs, h.AI34) };
+  }
+
+  /* ------------------------------------------------------------------ */
   /* Gating (blank = not ranked)                                        */
   /* ------------------------------------------------------------------ */
 
@@ -615,7 +696,8 @@
       base: base,
       dock: inputs.dock,
       expMode: expMode,
-      rows: rows
+      rows: rows,
+      fishRows: computeFishRows(inputs, base)
     };
   }
 
@@ -625,6 +707,8 @@
     GEM_UPGRADES: GEM_UPGRADES,
     defaultInputs: defaultInputs,
     computeModel: computeModel,
+    computeFishModel: computeFishModel,
+    computeFishRows: computeFishRows,
     computeHelpers: computeHelpers,
     computeAY: computeAY,
     costAU: costAU,

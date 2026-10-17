@@ -5,7 +5,9 @@ fish/time it adds **per gem you spend**, so you can decide what to buy next.
 
 It is a faithful JavaScript port of the community Google Sheet **"Let's Go Fishing - V2.0.6"**
 (`Obefish` tab). You can type your stats in by hand, or import the game's **ExportStats JSON**
-to fill almost everything automatically.
+to fill almost everything automatically. It also ranks the **fish-purchased upgrades**
+(Fishing Rod, Drone, boats, ticks, ...) by fish/time gained per power-weighted fish spent
+(section 7).
 
 No build step, no server: open `index.html` in a browser.
 
@@ -83,6 +85,22 @@ Press **+1** repeatedly to plan a multi-purchase shopping list; **Undo last purc
 one level at a time. The level inputs in section 3 stay in sync, and any manual edit clears the
 comparison so the arrows never go stale.
 
+## Fish upgrade ranking (section 7)
+
+The *Fishing - Upgrades* rows (3-20) are bought with **fish**, not gems, so they get their own table:
+
+- Score = `(new fish/time - current fish/time) / weighted cost`, where
+  `weighted cost = fish count x the fish's power rating` (the wiki's catch-difficulty stat), so
+  prices paid in different species are comparable.
+- Cost tables (count + species per level) and power ratings come from the wiki's *Fishing* page
+  (v2.2.30, Upgrades + Aquarium sections) and live in `fishcosts.js`. The wiki shows prices above
+  ~99,999 rounded (`111k`, `1.56m`), so high-level scores are approximate.
+- Rows locked behind a boat level are greyed out with the requirement; the two boat rows are shown
+  as unlock purchases (they add no fish/time directly), and maxed rows show "Maxed".
+- Some upgrades only do something in the right context (Shiny Multiplier needs a super-shiny
+  chance > 0; Tier 2 Dock Power needs a Tier-2 dock selected). Those rows read
+  "No direct fish/time change" until your state makes them matter.
+
 ## Files
 
 | File | Purpose |
@@ -91,11 +109,13 @@ comparison so the arrows never go stale.
 | `styles.css` | Styling |
 | `model.js` | The ported model (`window.FishModel`) |
 | `data.js` | Field labels/limits (`window.UI_SPEC`) |
+| `fishcosts.js` | Fish-upgrade cost tables + fish power ratings (`window.FISH_DATA`) |
 | `exportstats.js` | ExportStats -> inputs mapper (`window.ExportStats`) |
 | `app.js` | UI wiring |
 | `sample.js` | A sample ExportStats export (`window.SAMPLE_EXPORT`) |
 | `test/validate.js` | Model vs. the sheet's cached default values |
 | `test/validate_export.js` | Export mapping + full-sample run |
+| `test/validate_fish.js` | Fish data shape + fish ranking behaviour |
 | `test/ui_smoke.js` | Headless UI wiring smoke test |
 
 ## Running the tests
@@ -103,11 +123,13 @@ comparison so the arrows never go stale.
 ```
 node test/validate.js
 node test/validate_export.js
+node test/validate_fish.js
 node test/ui_smoke.js
 ```
 
 `validate.js` checks the ported model against the spreadsheet's cached values in the default
-(empty) state; the others exercise the import mapping and the UI wiring.
+(empty) state; the others exercise the import mapping, the fish cost/ranking data, and the UI
+wiring.
 
 ## Disclaimer
 

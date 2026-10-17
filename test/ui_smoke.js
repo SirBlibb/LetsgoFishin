@@ -34,6 +34,18 @@ function rowsOf() {
   return table.children[1].children;
 }
 
+function fishRowsOf() {
+  var root = byId["fish-results"];
+  var table = root.children[root.children.length - 2].children[0]; // .table-scroll > table
+  return table.children[1].children;
+}
+
+function countUnblocked(rows) {
+  var n = 0;
+  rows.forEach(function (tr) { if (tr.className.indexOf("blocked") < 0) n++; });
+  return n;
+}
+
 function findButton(scope, label) {
   if (!scope) return null;
   if (scope.tagName === "button" && scope.textContent === label) return scope;
@@ -63,6 +75,7 @@ global.FileReader = function () { this.readAsText = function () {}; };
 
 require("../model.js");
 require("../data.js");
+require("../fishcosts.js");
 require("../exportstats.js");
 require("../sample.js");
 require("../app.js");
@@ -83,6 +96,11 @@ check("results table has 21 rows", rows.length === 21);
 check("results row has 10 cells", rows[0].children.length === 10);
 check("undo disabled with no history", byId["btn-undo"].disabled === true);
 
+var frows = fishRowsOf();
+check("fish table has 18 rows", frows.length === 18);
+check("fish row has 10 cells", frows[0].children.length === 10);
+check("fish rankable in default state (rod+drone)", countUnblocked(frows) === 2);
+
 /* ---- sample import ----------------------------------------------- */
 fire(byId["btn-sample"], "click");
 rows = rowsOf();
@@ -93,6 +111,10 @@ var rankable = expect.length;
 
 check("sample import keeps 21 rows", rows.length === 21);
 check("top row is rank 1", rows[0].children[0].children[0].textContent === "1");
+
+frows = fishRowsOf();
+check("sample fish table still 18 rows", frows.length === 18);
+check("sample fish maxed (none rankable)", countUnblocked(frows) === 0);
 
 var buyable = 0;
 rows.forEach(function (tr) { if (findButton(tr.children[8], "+1").disabled === false) buyable++; });

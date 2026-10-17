@@ -135,7 +135,7 @@
     });
 
     var sec2 = el("div", "subsection");
-    sec2.appendChild(el("h3", null, "Fishing - Upgrades (inputs, not ranked)"));
+    sec2.appendChild(el("h3", null, "Fishing - Upgrades (bought with fish, ranked in section 7)"));
     var grid2 = el("div", "grid");
     UI.UPGRADE_INPUTS.forEach(function (u) { grid2.appendChild(upgradeField(u.row, u.label + " (max " + u.max + ")", u.max)); });
     sec2.appendChild(grid2);
@@ -385,6 +385,65 @@
   }
 
   /* ---------------------------------------------------------------- */
+  /* fish-purchased upgrades (rows 3-20, paid with fish)              */
+  /* ---------------------------------------------------------------- */
+
+  function renderFishResults(root, model) {
+    root.innerHTML = "";
+    var rows = model.fishRows || [];
+
+    if (!rows.length) {
+      root.appendChild(el("p", "hint", "Fish upgrade data not loaded (fishcosts.js missing)."));
+      return;
+    }
+
+    var table = el("table", "results-table");
+    var thead = el("thead");
+    var cols = ["Rank", "Upgrade", "Level", "Max", "Next cost", "Weighted cost", "New fish/time", "Growth", "Score/effort", "Note"];
+    var hr = el("tr");
+    cols.forEach(function (c) { hr.appendChild(el("th", null, c)); });
+    thead.appendChild(hr);
+    table.appendChild(thead);
+
+    var tbody = el("tbody");
+    rows
+      .slice()
+      .sort(function (a, b) {
+        if (a.rankable && b.rankable) return a.rank - b.rank;
+        if (a.rankable) return -1;
+        if (b.rankable) return 1;
+        return a.row - b.row;
+      })
+      .forEach(function (r) {
+        var tr = el("tr");
+        if (!r.rankable) tr.className = "blocked";
+
+        tr.appendChild(el("td", "rank", r.rank ? String(r.rank) : "-"));
+        tr.appendChild(el("td", "name", r.name));
+        tr.appendChild(el("td", null, String(r.level)));
+        tr.appendChild(el("td", null, String(r.max)));
+
+        var costCell = el("td", "num", r.count === null ? "-" : fmtInt(r.count) + " \u00d7 " + r.fish);
+        if (r.fishPower !== null) costCell.title = r.fish + " power rating: " + fmtInt(r.fishPower);
+        tr.appendChild(costCell);
+
+        tr.appendChild(el("td", "num", r.effort === null ? "-" : fmt(r.effort)));
+        tr.appendChild(el("td", "num", fmt(r.newFishTime)));
+        tr.appendChild(el("td", "num", r.growth === null ? "-" : fmtPct(r.growth)));
+        tr.appendChild(el("td", "num", r.score === null ? "-" : r.score.toExponential(3)));
+        tr.appendChild(el("td", "note", r.rankable ? "" : (r.blocked || "")));
+        tbody.appendChild(tr);
+      });
+    table.appendChild(tbody);
+
+    root.appendChild(scrollWrap(table));
+    root.appendChild(el("p", "hint",
+      "Bought with fish, not gems. Score = (new fish/time - current fish/time) / weighted cost, where " +
+      "weighted cost = fish count \u00d7 the fish's power rating (how hard it is to catch, so costs across " +
+      "species are comparable). Wiki prices above ~99,999 are rounded."));
+  }
+
+  /* ---------------------------------------------------------------- */
   /* import panel                                                     */
   /* ---------------------------------------------------------------- */
 
@@ -455,6 +514,7 @@
   function update() {
     var model = FM.computeModel(state);
     renderResults(document.getElementById("results"), model);
+    renderFishResults(document.getElementById("fish-results"), model);
   }
 
   function rebuild() {

@@ -1,4 +1,5 @@
 require("../model.js");
+require("../fishcosts.js");
 require("../exportstats.js");
 
 var fs = require("fs");
@@ -44,6 +45,9 @@ check("C25 black hole", res.inputs.C[25] === true);
 var model = fm.computeModel(res.inputs);
 check("AI34 finite", isFinite(model.base) && model.base > 0);
 check("rows length", model.rows.length === 21);
+check("fish rows length", model.fishRows.length === 18);
+check("sample is maxed on all fish upgrades",
+  model.fishRows.every(function (r) { return !r.rankable && r.blocked === "Maxed"; }));
 
 console.log("applied: " + res.applied.length);
 console.log("missing: " + res.missing.length + (res.missing.length ? " (" + res.missing.join(", ") + ")" : ""));

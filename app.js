@@ -8,8 +8,14 @@
   var FM = window.FishModel;
   var UI = window.UI_SPEC;
   var ES = window.ExportStats;
+  var FD = window.FISH_DATA;
 
-  var state = FM.defaultInputs();
+  var STORAGE_KEY = "lgf-optimizer-state-v1";
+  var saveTimer = null;
+
+  var savedState = loadSavedState();
+  var state = savedState || FM.defaultInputs();
+  var restoredSaved = !!savedState;
   var importReport = null;
   var lastRanks = null;
   var lastBase = null;
@@ -60,6 +66,141 @@
   }
 
   /* ---------------------------------------------------------------- */
+  /* saved player details                                             */
+  /* ---------------------------------------------------------------- */
+
+  function getStorage() {
+    try {
+      if (typeof window !== "undefined" && window.localStorage) return window.localStorage;
+    } catch (e) { /* storage blocked */ }
+    return null;
+  }
+
+  function isFiniteNumber(v) { return typeof v === "number" && isFinite(v); }
+
+  function isIntInRange(v, min, max) {
+    return isFiniteNumber(v) && Math.floor(v) === v && v >= min && v <= max;
+  }
+
+  function clampSpec(v, spec) {
+    var min = spec.min != null ? spec.min : 0;
+    if (v < min) v = min;
+    if (spec.max != null && v > spec.max) v = spec.max;
+    return v;
+  }
+
+  // Merge saved values onto fresh defaults so older saves keep working when
+  // fields are added or limits change, and malformed values are ignored.
+  function normalizeState(saved) {
+    var base = FM.defaultInputs();
+    if (!saved || typeof saved !== "object") return base;
+
+    if (typeof saved.dock === "string" && FM.DOCKS.some(function (d) { return d.id === saved.dock; })) {
+      base.dock = saved.dock;
+    }
+    if (isIntInRange(saved.rodCard, 0, UI.LEGENDARY_NAMES.length - 1)) base.rodCard = saved.rodCard;
+    base.expMode = !!saved.expMode;
+    base.hideLocked = !!saved.hideLocked;
+
+    var maxByRow = {};
+    FM.GEM_UPGRADES.forEach(function (u) { maxByRow[u.row] = u.max; });
+    UI.UPGRADE_INPUTS.forEach(function (u) { maxByRow[u.row] = u.max; });
+    if (saved.G && typeof saved.G === "object") {
+      Object.keys(base.G).forEach(function (row) {
+        var v = saved.G[row];
+        if (!isFiniteNumber(v)) return;
+        var max = maxByRow[row];
+        base.G[row] = Math.max(0, max != null ? Math.min(v, max) : v);
+      });
+    }
+
+    var specByKey = {};
+    UI.SCALARS.forEach(function (f) { specByKey[f.key] = f; });
+    if (saved.C && typeof saved.C === "object") {
+      Object.keys(base.C).forEach(function (key) {
+        var spec = specByKey[key];
+        var v = saved.C[key];
+        if (!spec) return;
+        if (spec.type === "bool") {
+          if (typeof v === "boolean") base.C[key] = v;
+        } else if (v === null) {
+          if (spec.blank) base.C[key] = null;
+        } else if (isFiniteNumber(v)) {
+          base.C[key] = clampSpec(v, spec);
+        }
+      });
+    }
+
+    if (saved.cards && typeof saved.cards === "object") {
+      FM.DOCKS.forEach(function (d) {
+        var src = saved.cards[d.id];
+        if (!src || typeof src !== "object") return;
+        var dst = base.cards[d.id];
+        if (Array.isArray(src.t1)) {
+          for (var k = 0; k < 4; k++) {
+            if (isIntInRange(src.t1[k], 0, UI.T1_CARD_NAMES.length - 1)) dst.t1[k] = src.t1[k];
+          }
+        }
+        if (isIntInRange(src.ae, 0, UI.LEGENDARY_NAMES.length - 1)) dst.ae = src.ae;
+        if (isIntInRange(src.af, 0, UI.TRIBUTE_NAMES.length - 1)) dst.af = src.af;
+      });
+    }
+
+    return base;
+  }
+
+  function loadSavedState() {
+    var store = getStorage();
+    if (!store) return null;
+    try {
+      var raw = store.getItem(STORAGE_KEY);
+      if (!raw) return null;
+      var saved = JSON.parse(raw);
+      return normalizeState(saved && saved.inputs ? saved.inputs : saved);
+    } catch (e) {
+      return null;
+    }
+  }
+
+  function saveNow() {
+    var store = getStorage();
+    if (!store) return;
+    try {
+      store.setItem(STORAGE_KEY, JSON.stringify({
+        version: 1,
+        savedAt: new Date().toISOString(),
+        inputs: state
+      }));
+    } catch (e) { /* storage full or blocked */ }
+  }
+
+  function persistState() {
+    if (saveTimer) clearTimeout(saveTimer);
+    saveTimer = setTimeout(function () {
+      saveTimer = null;
+      saveNow();
+    }, 200);
+  }
+
+  function flushSavedState() {
+    if (saveTimer) {
+      clearTimeout(saveTimer);
+      saveTimer = null;
+    }
+    saveNow();
+  }
+
+  function forgetSavedState() {
+    if (saveTimer) {
+      clearTimeout(saveTimer);
+      saveTimer = null;
+    }
+    var store = getStorage();
+    if (!store) return;
+    try { store.removeItem(STORAGE_KEY); } catch (e) { /* ignored */ }
+  }
+
+  /* ---------------------------------------------------------------- */
   /* settings                                                         */
   /* ---------------------------------------------------------------- */
 
@@ -97,6 +238,13 @@
     exp.appendChild(inp);
     exp.appendChild(el("span", null, "Rank by growth per 100k gems (exponential mode)"));
     root.appendChild(exp);
+
+    var hide = el("label", "check");
+    var hideInp = el("input"); hideInp.type = "checkbox"; hideInp.checked = !!state.hideLocked;
+    hideInp.addEventListener("change", function () { state.hideLocked = hideInp.checked; update(); });
+    hide.appendChild(hideInp);
+    hide.appendChild(el("span", null, "Hide locked upgrades in both rankings"));
+    root.appendChild(hide);
   }
 
   /* ---------------------------------------------------------------- */
@@ -246,6 +394,9 @@
   function upgradeForRow(row) {
     var found = null;
     FM.GEM_UPGRADES.forEach(function (u) { if (u.row === row) found = u; });
+    if (!found && FD && FD.upgrades) {
+      FD.upgrades.forEach(function (u) { if (u.row === row) found = u; });
+    }
     return found;
   }
 
@@ -334,7 +485,11 @@
     table.appendChild(thead);
 
     var tbody = el("tbody");
-    model.rows
+    var shownRows = state.hideLocked
+      ? model.rows.filter(function (r) { return !r.locked; })
+      : model.rows;
+    var hiddenLocked = model.rows.length - shownRows.length;
+    shownRows
       .slice()
       .sort(function (a, b) {
         if (a.rankable && b.rankable) return a.rank - b.rank;
@@ -381,7 +536,8 @@
     root.appendChild(scrollWrap(table));
     root.appendChild(el("p", "hint",
       "Ranked by " + (model.expMode ? "growth per 100,000 gems (exponential)" : "(new fish/time - current fish/time) / gem cost") +
-      ". Lower gem cost + higher growth = better. Press +1 on a row to spend that upgrade's gems and see how the ranking moves."));
+      ". Lower gem cost + higher growth = better. Press +1 on a row to spend that upgrade's gems and see how the ranking moves." +
+      (hiddenLocked ? " " + hiddenLocked + " locked upgrade" + (hiddenLocked === 1 ? "" : "s") + " hidden." : "")));
   }
 
   /* ---------------------------------------------------------------- */
@@ -399,14 +555,18 @@
 
     var table = el("table", "results-table");
     var thead = el("thead");
-    var cols = ["Rank", "Upgrade", "Level", "Max", "Next cost", "Weighted cost", "New fish/time", "Growth", "Score/effort", "Note"];
+    var cols = ["Rank", "Upgrade", "Level", "Max", "Next cost", "Weighted cost", "New fish/time", "Growth", "Score/effort", "Buy", "Note"];
     var hr = el("tr");
     cols.forEach(function (c) { hr.appendChild(el("th", null, c)); });
     thead.appendChild(hr);
     table.appendChild(thead);
 
     var tbody = el("tbody");
-    rows
+    var shownRows = state.hideLocked
+      ? rows.filter(function (r) { return !r.locked; })
+      : rows;
+    var hiddenLocked = rows.length - shownRows.length;
+    shownRows
       .slice()
       .sort(function (a, b) {
         if (a.rankable && b.rankable) return a.rank - b.rank;
@@ -417,6 +577,7 @@
       .forEach(function (r) {
         var tr = el("tr");
         if (!r.rankable) tr.className = "blocked";
+        if (r.row === lastBuy) tr.className += " just-bought";
 
         tr.appendChild(el("td", "rank", r.rank ? String(r.rank) : "-"));
         tr.appendChild(el("td", "name", r.name));
@@ -431,6 +592,16 @@
         tr.appendChild(el("td", "num", fmt(r.newFishTime)));
         tr.appendChild(el("td", "num", r.growth === null ? "-" : fmtPct(r.growth)));
         tr.appendChild(el("td", "num", r.score === null ? "-" : r.score.toExponential(3)));
+
+        var buyCell = el("td", "buy");
+        var b = el("button", "buy-btn", "+1");
+        b.type = "button";
+        b.title = "Commit one level of " + r.name + " and re-rank";
+        b.disabled = !r.buyable;
+        b.addEventListener("click", function () { commitLevel(r.row); });
+        buyCell.appendChild(b);
+        tr.appendChild(buyCell);
+
         tr.appendChild(el("td", "note", r.rankable ? "" : (r.blocked || "")));
         tbody.appendChild(tr);
       });
@@ -440,7 +611,9 @@
     root.appendChild(el("p", "hint",
       "Bought with fish, not gems. Score = (new fish/time - current fish/time) / weighted cost, where " +
       "weighted cost = fish count \u00d7 the fish's power rating (how hard it is to catch, so costs across " +
-      "species are comparable). Wiki prices above ~99,999 are rounded."));
+      "species are comparable). Wiki prices above ~99,999 are rounded. Press +1 on a row to spend that " +
+      "upgrade's fish and re-rank everything." +
+      (hiddenLocked ? " " + hiddenLocked + " locked upgrade" + (hiddenLocked === 1 ? "" : "s") + " hidden." : "")));
   }
 
   /* ---------------------------------------------------------------- */
@@ -457,7 +630,9 @@
     try {
       var parsed = ES.parseExport(raw);
       var res = ES.apply(parsed.stats, FM.defaultInputs());
+      var hideLocked = !!state.hideLocked;
       state = res.inputs;
+      state.hideLocked = hideLocked;
       importReport = res;
       clearHistory();
       rebuild();
@@ -471,6 +646,31 @@
 
   function initImport() {
     var ta = document.getElementById("import-text");
+
+    document.getElementById("btn-paste").addEventListener("click", function () {
+      if (typeof navigator === "undefined" || !navigator.clipboard || !navigator.clipboard.readText) {
+        ta.focus();
+        showReport("Clipboard access is unavailable here - click the box and press Ctrl+V.", false);
+        return;
+      }
+      navigator.clipboard.readText().then(function (text) {
+        if (!text) {
+          showReport("Clipboard is empty.", false);
+          return;
+        }
+        ta.value = text;
+        ta.focus();
+        showReport("JSON pasted. Press Apply JSON to import it.", true);
+      }).catch(function () {
+        ta.focus();
+        showReport("Could not read the clipboard - click the box and press Ctrl+V.", false);
+      });
+    });
+
+    ta.addEventListener("keydown", function (e) {
+      if ((e.ctrlKey || e.metaKey) && e.key === "Enter") applyImport(ta.value, "pasted JSON");
+    });
+
     document.getElementById("btn-parse").addEventListener("click", function () {
       applyImport(ta.value, "pasted JSON");
     });
@@ -481,9 +681,11 @@
     document.getElementById("btn-clear").addEventListener("click", function () {
       state = FM.defaultInputs();
       importReport = null;
+      restoredSaved = false;
       clearHistory();
       rebuild();
-      showReport("Reset to defaults.", true);
+      forgetSavedState();
+      showReport("Reset to defaults and cleared the saved details.", true);
     });
 
     var file = document.getElementById("import-file");
@@ -511,10 +713,35 @@
   /* wiring                                                           */
   /* ---------------------------------------------------------------- */
 
+  // sections 3-5: one editor open at a time keeps the rankings close by
+  function initAccordion() {
+    if (!document.querySelectorAll) return;
+    var items = document.querySelectorAll("#input-accordion > details");
+    if (!items.length) return;
+    var list = Array.prototype.slice.call(items);
+    list.forEach(function (item) {
+      item.addEventListener("toggle", function () {
+        if (!item.open) return;
+        list.forEach(function (other) { if (other !== item) other.open = false; });
+      });
+    });
+
+    var closers = document.querySelectorAll("#input-accordion .acc-close");
+    Array.prototype.forEach.call(closers, function (btn) {
+      btn.addEventListener("click", function () {
+        var item = btn.closest ? btn.closest("details") : null;
+        if (item) item.open = false;
+        var ranking = document.getElementById("ranking");
+        if (ranking && ranking.scrollIntoView) ranking.scrollIntoView({ behavior: "smooth", block: "start" });
+      });
+    });
+  }
+
   function update() {
     var model = FM.computeModel(state);
     renderResults(document.getElementById("results"), model);
     renderFishResults(document.getElementById("fish-results"), model);
+    persistState();
   }
 
   function rebuild() {
@@ -527,8 +754,23 @@
 
   function init() {
     initImport();
+    initAccordion();
     rebuild();
-    showReport("Enter values manually, or import your game's ExportStats JSON.", true);
+
+    var note = document.getElementById("save-note");
+    if (note) {
+      note.textContent = getStorage()
+        ? "Your details are saved automatically in this browser."
+        : "This browser is blocking local storage, so details will not be remembered.";
+    }
+
+    if (typeof window !== "undefined" && window.addEventListener) {
+      window.addEventListener("beforeunload", flushSavedState);
+    }
+
+    showReport(restoredSaved
+      ? "Restored your saved details from this browser."
+      : "Enter values manually, or import your game's ExportStats JSON.", true);
   }
 
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", init);

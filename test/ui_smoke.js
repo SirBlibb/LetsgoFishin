@@ -88,7 +88,7 @@ function check(name, cond) { if (!cond) { fails++; console.log("FAIL " + name); 
 
 /* ---- default-state render ---------------------------------------- */
 var rows = rowsOf();
-check("settings has 3 fields", byId["settings"].children.length === 3);
+check("settings has 4 fields", byId["settings"].children.length === 4);
 check("upgrades rendered", byId["upgrades"].children.length >= 3);
 check("cards table rendered", byId["cards"].children.length >= 2);
 check("scalars rendered", byId["scalars"].children.length >= 5);
@@ -98,8 +98,42 @@ check("undo disabled with no history", byId["btn-undo"].disabled === true);
 
 var frows = fishRowsOf();
 check("fish table has 18 rows", frows.length === 18);
-check("fish row has 10 cells", frows[0].children.length === 10);
+check("fish row has 11 cells", frows[0].children.length === 11);
 check("fish rankable in default state (rod+drone)", countUnblocked(frows) === 2);
+
+/* ---- hide locked toggle ------------------------------------------ */
+var hideBox = byId["settings"].children[3].children[0];
+var lockedGem = FM.computeModel(FM.defaultInputs()).rows.filter(function (r) { return r.locked; }).length;
+var lockedFish = FM.computeModel(FM.defaultInputs()).fishRows.filter(function (r) { return r.locked; }).length;
+check("locked gem rows exist", lockedGem > 0);
+check("locked fish rows exist", lockedFish > 0);
+hideBox.checked = true;
+fire(hideBox, "change");
+rows = rowsOf();
+frows = fishRowsOf();
+check("gem locked rows hidden", rows.length === 21 - lockedGem);
+check("fish locked rows hidden", frows.length === 18 - lockedFish);
+hideBox.checked = false;
+fire(hideBox, "change");
+rows = rowsOf();
+frows = fishRowsOf();
+check("gem rows restored", rows.length === 21);
+check("fish rows restored", frows.length === 18);
+
+/* ---- fish +1 purchase -------------------------------------------- */
+var fishRod = findByRowName(frows, "Fishing Rod");
+var startFishLevel = parseInt(fishRod.children[2].textContent, 10);
+var fishBuy = findButton(fishRod.children[9], "+1");
+check("fish rod has an enabled +1", !!fishBuy && fishBuy.disabled === false);
+fire(fishBuy, "click");
+frows = fishRowsOf();
+fishRod = findByRowName(frows, "Fishing Rod");
+check("fish level incremented", fishRod.children[2].textContent === String(startFishLevel + 1));
+check("fish purchase highlighted", fishRod.className.indexOf("just-bought") >= 0);
+fire(byId["btn-undo"], "click");
+frows = fishRowsOf();
+fishRod = findByRowName(frows, "Fishing Rod");
+check("fish level reverted", fishRod.children[2].textContent === String(startFishLevel));
 
 /* ---- sample import ----------------------------------------------- */
 fire(byId["btn-sample"], "click");

@@ -97,6 +97,7 @@
       dock: "Lake",
       rodCard: 0,          // AD16 (Fishing Rod legendary card, 0-4)
       expMode: false,      // R18 — rank by growth per million gems
+      hideLocked: false,   // UI preference: hide upgrades blocked by prerequisites
       C: {
         3: 0,        // Fishing Drone Base Power stat
         5: false,    // 3x Fishing Tick Speed
@@ -572,6 +573,8 @@
           : gate ? gate
           : !cost ? "No cost data"
           : (score === null ? "No direct fish/time change (unlocks upgrades)" : null),
+        locked: !!gate,
+        buyable: !!cost,
         rankable: score !== null && isFinite(score)
       };
     });
@@ -682,6 +685,7 @@
         score: score,
         rank: null,
         blocked: maxed ? "Maxed" : gate,
+        locked: !!gate && gate.indexOf("Requires") === 0,
         rankable: score !== null && isFinite(score)
       };
     });

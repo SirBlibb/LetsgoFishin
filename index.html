@@ -19,11 +19,16 @@
     <div class="import-controls">
       <input type="file" id="import-file" accept=".json,application/json">
       <button id="btn-sample" type="button">Load sample</button>
-      <button id="btn-parse" type="button">Parse pasted JSON</button>
       <button id="btn-clear" type="button">Reset</button>
     </div>
+    <label class="import-label" for="import-text">Paste ExportStats JSON</label>
     <textarea id="import-text" placeholder="Paste ExportStats JSON here, or drag a .json file onto the page..."></textarea>
+    <div class="import-controls import-apply">
+      <button id="btn-paste" class="ghost" type="button">Paste from clipboard</button>
+      <button id="btn-parse" type="button">Apply JSON</button>
+    </div>
     <div id="import-status" class="import-status"></div>
+    <p class="hint save-note" id="save-note"></p>
     <details>
       <summary>How to get this file</summary>
       <p>In the game, open <em>Settings &rarr; Export Stats</em> (or the equivalent ExportStats button), copy the
@@ -37,22 +42,44 @@
     <div id="settings" class="grid"></div>
   </section>
 
-  <section class="panel">
-    <h2>3. Upgrade levels</h2>
-    <div id="upgrades"></div>
+  <section class="panel acc-panel" id="input-accordion">
+    <p class="hint acc-hint">Open a section to edit it. Only one stays open, so the rankings below stay within reach.</p>
+    <details class="acc" id="acc-upgrades">
+      <summary>
+        <span class="acc-title">3. Upgrade levels</span>
+        <span class="acc-sub">Gem upgrades and fish-purchased levels</span>
+        <span class="acc-icon" aria-hidden="true"></span>
+      </summary>
+      <div class="acc-body">
+        <div id="upgrades"></div>
+        <div class="acc-actions"><button class="ghost acc-close" type="button">Close &amp; view rankings</button></div>
+      </div>
+    </details>
+    <details class="acc" id="acc-cards">
+      <summary>
+        <span class="acc-title">4. Fish cards (per dock)</span>
+        <span class="acc-sub">Tier-1, legendary, and tribute levels</span>
+        <span class="acc-icon" aria-hidden="true"></span>
+      </summary>
+      <div class="acc-body">
+        <div id="cards"></div>
+        <div class="acc-actions"><button class="ghost acc-close" type="button">Close &amp; view rankings</button></div>
+      </div>
+    </details>
+    <details class="acc" id="acc-scalars">
+      <summary>
+        <span class="acc-title">5. Other bonuses</span>
+        <span class="acc-sub">Bundles, statues, pets, and skill-tree extras</span>
+        <span class="acc-icon" aria-hidden="true"></span>
+      </summary>
+      <div class="acc-body">
+        <div id="scalars"></div>
+        <div class="acc-actions"><button class="ghost acc-close" type="button">Close &amp; view rankings</button></div>
+      </div>
+    </details>
   </section>
 
-  <section class="panel">
-    <h2>4. Fish cards (per dock)</h2>
-    <div id="cards"></div>
-  </section>
-
-  <section class="panel">
-    <h2>5. Other bonuses</h2>
-    <div id="scalars"></div>
-  </section>
-
-  <section class="panel results-panel">
+  <section class="panel results-panel" id="ranking">
     <h2>6. Ranking</h2>
     <div id="results"></div>
   </section>

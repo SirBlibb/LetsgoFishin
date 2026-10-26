@@ -447,31 +447,59 @@
 
     var thead = el("thead");
     var hr = el("tr");
-    ["Level", "Bar", "World", "Base cost", "Eff. cost", "BoP bars", "Trans bars", "Better", "Margin"]
+    ["Level", "Bar", "Base cost", "Eff. cost", "BoP bars", "Trans bars", "Better", "Margin"]
       .forEach(function (label) { hr.appendChild(el("th", null, label)); });
     thead.appendChild(hr);
     table.appendChild(thead);
 
-    var tbody = el("tbody");
+    var groups = [];
+    var byWorld = {};
     result.rows.forEach(function (row) {
-      var tr = el("tr");
-      if (row.level === state.level) tr.className = "selected";
-
-      tr.appendChild(el("td", "num", String(row.level)));
-      tr.appendChild(el("td", "name", row.bar.name));
-      tr.appendChild(el("td", "num", "W" + row.bar.world));
-      tr.appendChild(el("td", "num", fmtInt(row.baseCost)));
-      tr.appendChild(el("td", "num", fmtInt(row.effectiveCost)));
-      tr.appendChild(el("td", "num", fmt(row.bopPerOre * state.ore)));
-      tr.appendChild(el("td", "num", fmt(row.transPerOre * state.ore)));
-
-      var winner = row.winner === "bop" ? "BoP" : row.winner === "trans" ? "Trans" : "Tie";
-      tr.appendChild(el("td", "bomb-winner " + row.winner, winner));
-      tr.appendChild(el("td", "num", row.winner === "tie" ? "-" : fmtPct(row.advantage)));
-
-      tbody.appendChild(tr);
+      var world = row.bar.world;
+      if (!byWorld[world]) {
+        byWorld[world] = { world: world, rows: [] };
+        groups.push(byWorld[world]);
+      }
+      byWorld[world].rows.push(row);
     });
-    table.appendChild(tbody);
+
+    groups.forEach(function (group) {
+      var tbody = el("tbody", "bomb-world");
+      tbody.id = "bomb-world-" + group.world;
+
+      var first = group.rows[0];
+      var last = group.rows[group.rows.length - 1];
+      var worldRow = el("tr", "bomb-world-head");
+      var worldHead = el("th");
+      worldHead.colSpan = 8;
+      worldHead.scope = "colgroup";
+      worldHead.appendChild(el("span", "bomb-world-name", "World " + group.world));
+      worldHead.appendChild(el("span", "bomb-world-meta",
+        "Levels " + first.level + "-" + last.level + " · " + first.bar.name + " to " + last.bar.name +
+        " · " + group.rows.length + " bars"));
+      worldRow.appendChild(worldHead);
+      tbody.appendChild(worldRow);
+
+      group.rows.forEach(function (row) {
+        var tr = el("tr");
+        if (row.level === state.level) tr.className = "selected";
+
+        tr.appendChild(el("td", "num", String(row.level)));
+        tr.appendChild(el("td", "name", row.bar.name));
+        tr.appendChild(el("td", "num", fmtInt(row.baseCost)));
+        tr.appendChild(el("td", "num", fmtInt(row.effectiveCost)));
+        tr.appendChild(el("td", "num", fmt(row.bopPerOre * state.ore)));
+        tr.appendChild(el("td", "num", fmt(row.transPerOre * state.ore)));
+
+        var winner = row.winner === "bop" ? "BoP" : row.winner === "trans" ? "Trans" : "Tie";
+        tr.appendChild(el("td", "bomb-winner " + row.winner, winner));
+        tr.appendChild(el("td", "num", row.winner === "tie" ? "-" : fmtPct(row.advantage)));
+
+        tbody.appendChild(tr);
+      });
+
+      table.appendChild(tbody);
+    });
     nodes.table.appendChild(scrollWrap(table));
 
     var bopWins = 0;

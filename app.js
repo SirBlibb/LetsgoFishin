@@ -323,6 +323,26 @@
         ? "Using your saved account" + versionSuffix + "."
         : "No account JSON loaded - enter bomb and crafting stats manually, or import one on the home page.";
     }
+
+    var goalBadge = document.getElementById("goal-badge");
+    if (goalBadge) {
+      goalBadge.textContent = hasAccount ? "Account loaded" : "Manual entry";
+      goalBadge.className = "badge" + (hasAccount ? " ok" : "");
+    }
+
+    var goalNote = document.getElementById("goal-account-note");
+    if (goalNote) {
+      goalNote.textContent = hasAccount
+        ? "Uses your saved account" + versionSuffix + " crafting stats. Ore and bar balances stay manual."
+        : "No account yet - enter your ore, bars, and crafting stats by hand.";
+    }
+
+    var goalStatus = document.getElementById("goal-account-status");
+    if (goalStatus) {
+      goalStatus.textContent = hasAccount
+        ? "Using your saved account" + versionSuffix + " for crafting stats. Current ore and bars are entered by hand."
+        : "No account JSON loaded - enter current ore, bars, and crafting stats manually, or import one on the home page.";
+    }
   }
 
   /* ---------------------------------------------------------------- */
@@ -771,6 +791,7 @@
       };
       if (ACCOUNT) ACCOUNT.save(accountRecord);
       if (window.BombTool) window.BombTool.refreshAccount();
+      if (window.GoalTool) window.GoalTool.refreshAccount();
       restoredSaved = true;
       clearHistory();
       rebuild();
@@ -824,12 +845,13 @@
       accountRecord = null;
       if (ACCOUNT) ACCOUNT.clear();
       if (window.BombTool) window.BombTool.refreshAccount();
+      if (window.GoalTool) window.GoalTool.resetAll();
       clearHistory();
       rebuild();
       forgetSavedState();
       ta.value = "";
       renderAccountSummary();
-      showReport("Reset to defaults and cleared the saved account details.", true);
+      showReport("Reset to defaults and cleared the saved account and goal details.", true);
     });
 
     var file = document.getElementById("import-file");
@@ -885,12 +907,13 @@
   /* home / tool views                                                */
   /* ---------------------------------------------------------------- */
 
-  var VIEW_IDS = { home: "view-home", fishing: "view-fishing", bombs: "view-bombs" };
+  var VIEW_IDS = { home: "view-home", fishing: "view-fishing", bombs: "view-bombs", goal: "view-goal" };
 
   function routeFromHash(hash) {
     var h = String(hash || "").replace(/^#\/?/, "").toLowerCase();
     if (h === "fishing" || h === "fishing-optimizer") return "fishing";
     if (h === "bombs" || h === "bomb" || h === "bomb-comparison" || h === "transmuter") return "bombs";
+    if (h === "goal" || h === "goal-eta" || h === "eta" || h === "time-to-goal") return "goal";
     return "home";
   }
 
@@ -920,7 +943,9 @@
         ? "Let's Go Fishing - Gem Upgrade Optimizer"
         : view === "bombs"
           ? "Bomb of Plenty vs Transmuter - Obelisk Miner Tools"
-          : "Obelisk Miner Tools";
+          : view === "goal"
+            ? "Goal ETA - Time to an Ore or Bar Target"
+            : "Obelisk Miner Tools";
     }
   }
 
@@ -960,6 +985,7 @@
     rebuild();
     renderAccountSummary();
     if (window.BombTool) window.BombTool.init();
+    if (window.GoalTool) window.GoalTool.init();
 
     var note = document.getElementById("save-note");
     if (note) {

@@ -4,6 +4,7 @@ A static website with a shared **account importer** plus tools for *Idle Obelisk
 
 - **Let's Go Fishing** ranks every fishing gem upgrade by how much fish/time it adds **per gem you spend**.
 - **Bomb Comparison** works out whether the **Bomb of Plenty** or **Transmuter Bomb** produces more bars at a chosen bar level.
+- **Goal ETA** estimates how long an ore or bar target will take from a measured ore/hour rate, with progress, milestones, and the rate a deadline needs.
 
 The fishing optimizer is a faithful JavaScript port of the community Google Sheet **"Let's Go
 Fishing - V2.0.6"** (`Obefish` tab). You can type your stats in by hand, or import the game's
@@ -12,7 +13,8 @@ Fishing - V2.0.6"** (`Obefish` tab). You can type your stats in by hand, or impo
 power-weighted fish spent (section 6).
 
 The bomb comparison follows the community Transmuter calculator's expected-value formulas and uses
-the wiki's bar costs through **Neopolium** (World 4).
+the wiki's bar costs through **Neopolium** (World 4). Goal ETA reuses the same bar costs and
+crafting formulas to turn a bar target into ore, then times it with your measured ore per hour.
 
 No build step, no server: open `index.html` in a browser.
 
@@ -21,12 +23,15 @@ No build step, no server: open `index.html` in a browser.
 1. Open `index.html` in any modern browser (works from `file://`). The home page opens at `#/home`.
 2. Paste your ExportStats JSON on the home page and press **Apply JSON**, or click **Load sample**
    to try it with a real late-game export. You can also drag a `.json` file onto the page.
-3. Open a tool from the cards (or the header): **Let's Go Fishing** (`#/fishing`) or
-   **Bomb comparison** (`#/bombs`). A refresh or bookmark reopens the tool directly.
+3. Open a tool from the cards (or the header): **Let's Go Fishing** (`#/fishing`),
+   **Bomb comparison** (`#/bombs`), or **Goal ETA** (`#/goal`). A refresh or bookmark reopens the
+   tool directly.
 4. Anything the game did not record (a few bar levels, bundles, statues, etc.) stays at 0 and is
    shown as a manual field - fill those in inside the tool.
 5. In the fishing tool, read the **Ranking** table: it is sorted best-first. `Score/gem` is the
    ranking metric.
+6. To plan a goal, enter your current amount, the target, and your measured ore per hour. Current
+   ore, current bars, and ore/hour are never in ExportStats, so the goal tool always asks for them.
 
 ## Home page and shared account
 
@@ -37,8 +42,8 @@ The home page (`#/home`) is the account hub:
 - The account summary shows the game version, export timestamp, source, import time, and how many
   fields were mapped.
 - Each tool card shows whether it will use the saved account or fall back to manual entry.
-- **Reset** clears the saved account, the fishing tool's settings, and the bomb tool's current
-  values.
+- **Reset** clears the saved account, the fishing tool's settings, the bomb tool's current values,
+  and the goal tool's targets and measured rate.
 - Tools read the account through `window.AccountStore` (`account.js`), so future tools can be added
   without changing the import flow.
 
@@ -139,8 +144,9 @@ The selected level shows:
 - which one wins and by what margin,
 - the breakpoint and the last/first known bar levels on each side.
 
-The **All bar levels** table repeats the comparison for every known bar. The selected level is
-highlighted. The **Breakpoint** is an *effective* ore cost per bar: below it BoP wins, above it
+The **All bar levels** table repeats the comparison for every known bar, split into World 1-4
+sections. The selected level is highlighted. The **Breakpoint** is an *effective* ore cost per bar:
+below it BoP wins, above it
 Transmuter wins. Effective cost follows the community calculator's `floor(base cost x
 bar_craft_cost_multi)` method, with a minimum of 1 ore per bar, so a level right at the breakpoint
 can move because of rounding.
@@ -198,11 +204,50 @@ Neopolium (World 4); if the game adds more bars, extend `BARS` in `bombdata.js`.
 - The game may change costs or mechanics. Sanity-check important decisions against the wiki and the
   community calculator.
 
+## Goal ETA (`#/goal`)
+
+Estimates how long an **ore** or **bar** target will take. ExportStats does not record your live ore
+or bar balances or your ore/hour rate, so those are always manual.
+
+- **Ore goal:** current ore, target ore, ore per hour, and play hours per day.
+- **Bar goal:** current bars, target bars, current ore, and the bar level you are crafting. The tool
+  reuses the bomb tool's nine crafting stats to convert bars into ore.
+- **Rate helper:** enter the ore before and after a session plus the minutes elapsed; it calculates
+  ore/hour and applies it to the goal.
+- **Estimate:** remaining amount, play time, calendar time at your hours per day, finish date and
+  time, progress, 25/50/75/100% milestones, and the rate needed to hit an optional deadline. If
+  your current ore already covers the remaining bars, it reads **Ready now** rather than a time.
+
+A deadline uses the play time available before it:
+`play hours = wall-clock hours until deadline x hours per day / 24`, then
+`required ore/hour = ore remaining / play hours`. The finish date assumes you spread your play hours
+evenly from now, so it is a planning estimate rather than a schedule.
+
+### Bar conversion
+
+`barsPerOre = bar_output_multi x craftMultiplier / effectiveCost`, using the same `craftMultiplier`
+and `effectiveCost` as the bomb tool. The ore still to mine is:
+
+`max(0, bars remaining / barsPerOre - current ore)`
+
+Craft multipliers are random, so `barsPerOre` is a long-run average. Short sessions can produce very
+different bar counts.
+
+### Caveats
+
+- The estimate is only as good as the ore/hour rate you measured. Rates change with world, pickaxe,
+  rock layout, upgrades, and how actively you play.
+- The bar conversion assumes every mined ore goes into the selected bar. Ore spent on other bars,
+  bombs, or upgrades is not modelled.
+- Milestones and the finish date use the same constant rate and hours-per-day assumptions; they do
+  not predict offline time, downtime, or upgrades you buy along the way.
+- A deadline assumes you actually play the hours you entered before that date.
+
 ## Files
 
 | File | Purpose |
 | --- | --- |
-| `index.html` | Home page + fishing and bomb tool shells |
+| `index.html` | Home page + fishing, bomb, and goal tool shells |
 | `styles.css` | Styling |
 | `model.js` | The ported fishing model (`window.FishModel`) |
 | `data.js` | Field labels/limits (`window.UI_SPEC`) |
@@ -211,12 +256,15 @@ Neopolium (World 4); if the game adds more bars, extend `BARS` in `bombdata.js`.
 | `account.js` | Shared saved-account storage (`window.AccountStore`) |
 | `bombdata.js` | Bar costs + bomb comparison formulas (`window.BombData`) |
 | `bombs.js` | Bomb comparison UI (`window.BombTool`) |
+| `goaldata.js` | Goal ETA + bar conversion maths (`window.GoalData`) |
+| `goals.js` | Goal ETA UI and measured-rate helper (`window.GoalTool`) |
 | `app.js` | View routing + fishing tool UI wiring + account import |
 | `sample.js` | A sample ExportStats export (`window.SAMPLE_EXPORT`) |
 | `test/validate.js` | Model vs. the sheet's cached default values |
 | `test/validate_export.js` | Export mapping + full-sample run |
 | `test/validate_fish.js` | Fish data shape + fish ranking behaviour |
 | `test/validate_bombs.js` | Bomb formulas, breakpoints, and page wiring |
+| `test/validate_goal.js` | Goal ETA formulas, bar conversion, and page wiring |
 | `test/ui_smoke.js` | Headless UI wiring smoke test |
 
 ## Running the tests
@@ -226,12 +274,13 @@ node test/validate.js
 node test/validate_export.js
 node test/validate_fish.js
 node test/validate_bombs.js
+node test/validate_goal.js
 node test/ui_smoke.js
 ```
 
 `validate.js` checks the ported model against the spreadsheet's cached values in the default
 (empty) state; the others exercise the import mapping, the fish cost/ranking data, the bomb
-comparison, and the UI wiring.
+comparison, the goal ETA maths, and the UI wiring.
 
 ## Disclaimer
 

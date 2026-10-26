@@ -17,6 +17,7 @@
       <a href="#/home" data-nav="home">Home</a>
       <a href="#/fishing" data-nav="fishing">Fishing optimizer</a>
       <a href="#/bombs" data-nav="bombs">Bomb comparison</a>
+      <a href="#/goal" data-nav="goal">Goal ETA</a>
     </nav>
   </div>
 </header>
@@ -80,6 +81,21 @@
           <div class="tool-card-footer">
             <span id="bombs-account-note" class="hint"></span>
             <a class="button-link" href="#/bombs">Open tool</a>
+          </div>
+        </article>
+
+        <article class="tool-card">
+          <div class="tool-card-head">
+            <div>
+              <h3>Goal ETA</h3>
+              <p class="tool-kicker">Time to an ore or bar target</p>
+            </div>
+            <span id="goal-badge" class="badge">Manual entry</span>
+          </div>
+          <p>Estimates how long an ore or bar target will take, with progress, milestones, and the rate a deadline needs.</p>
+          <div class="tool-card-footer">
+            <span id="goal-account-note" class="hint"></span>
+            <a class="button-link" href="#/goal">Open tool</a>
           </div>
         </article>
       </div>
@@ -208,7 +224,7 @@
 
     <section class="panel">
       <h2>3. Every bar level</h2>
-      <p class="lead">The same comparison across all known bars. The selected level is highlighted.</p>
+      <p class="lead">The same comparison across all known bars, split by world. The selected level is highlighted.</p>
       <details class="bomb-table-details">
         <summary id="bomb-table-summary">Show all bar levels</summary>
         <div id="bomb-table"></div>
@@ -230,12 +246,142 @@
       </details>
     </section>
   </div>
+
+  <!-- ============================= GOAL ============================ -->
+  <div id="view-goal" class="view" hidden>
+    <section class="panel tool-header-panel">
+      <a class="back-link" href="#/home">&larr; All tools</a>
+      <div class="tool-title-row">
+        <div>
+          <h2>Goal ETA <span class="title-sub">Time to an ore or bar target</span></h2>
+          <p class="lead">Estimate the finish time for your next ore or bar target, with progress, milestones, and the rate a deadline needs.</p>
+        </div>
+      </div>
+      <div class="tool-account-bar">
+        <span id="goal-account-status" class="hint"></span>
+        <a class="ghost-link" href="#/home">Change account data</a>
+      </div>
+    </section>
+
+    <section class="panel">
+      <h2>1. Your goal</h2>
+      <div class="goal-mode" role="group" aria-label="Goal type">
+        <label class="goal-mode-option">
+          <input type="radio" id="goal-mode-ore" name="goal-mode" value="ore" checked>
+          <span>Ore target</span>
+        </label>
+        <label class="goal-mode-option">
+          <input type="radio" id="goal-mode-bars" name="goal-mode" value="bars">
+          <span>Bar target</span>
+        </label>
+      </div>
+      <p class="hint" id="goal-mode-note">Use an ore per hour rate you measured in-game, or the rate helper below.</p>
+
+      <div class="goal-controls">
+        <label class="field">
+          <span class="field-label" id="goal-current-ore-label">Current ore</span>
+          <input id="goal-current-ore" type="number" min="0" step="any" value="0">
+        </label>
+        <label class="field" id="goal-target-ore-field">
+          <span class="field-label">Target ore</span>
+          <input id="goal-target-ore" type="number" min="0" step="any" value="100000">
+        </label>
+        <label class="field" id="goal-current-bars-field" hidden>
+          <span class="field-label">Current bars</span>
+          <input id="goal-current-bars" type="number" min="0" step="any" value="0">
+        </label>
+        <label class="field" id="goal-target-bars-field" hidden>
+          <span class="field-label">Target bars</span>
+          <input id="goal-target-bars" type="number" min="0" step="any" value="1000">
+        </label>
+        <label class="field" id="goal-level-field" hidden>
+          <span class="field-label">Bar level</span>
+          <select id="goal-level"></select>
+        </label>
+        <label class="field">
+          <span class="field-label">Ore per hour</span>
+          <input id="goal-rate" type="number" min="0" step="any" placeholder="e.g. 1000">
+        </label>
+        <label class="field">
+          <span class="field-label">Play hours per day</span>
+          <input id="goal-hours-day" type="number" min="0" max="24" step="any" value="8">
+        </label>
+        <label class="field">
+          <span class="field-label">Deadline (optional)</span>
+          <input id="goal-deadline" type="datetime-local">
+        </label>
+      </div>
+      <p class="hint">ExportStats does not include your live ore or bar balance, so enter those by hand. The ore per hour rate is an observation, not a game stat.</p>
+
+      <details class="goal-rate-helper">
+        <summary>Measure your ore per hour</summary>
+        <div class="goal-rate-grid">
+          <label class="field">
+            <span class="field-label">Ore before</span>
+            <input id="goal-rate-before" type="number" min="0" step="any">
+          </label>
+          <label class="field">
+            <span class="field-label">Ore after</span>
+            <input id="goal-rate-after" type="number" min="0" step="any">
+          </label>
+          <label class="field">
+            <span class="field-label">Minutes elapsed</span>
+            <input id="goal-rate-minutes" type="number" min="0" step="any">
+          </label>
+          <div class="field goal-rate-action">
+            <span class="field-label">&nbsp;</span>
+            <button id="goal-rate-apply" class="ghost" type="button">Use this rate</button>
+          </div>
+        </div>
+        <p id="goal-rate-result" class="hint">Enter two ore readings with some ore gained and a time above zero.</p>
+      </details>
+    </section>
+
+    <section class="panel acc-panel">
+      <details class="acc" id="goal-stats-details">
+        <summary>
+          <span class="acc-title">2. Crafting stats</span>
+          <span class="acc-sub" id="goal-stats-source">Defaults - enter your stats</span>
+          <span class="acc-icon" aria-hidden="true"></span>
+        </summary>
+        <div class="acc-body">
+          <p class="hint acc-hint">Only bar goals use these values. Craft chances are random, so bars per ore is a long-run average.</p>
+          <div id="goal-stats"></div>
+          <p id="goal-stats-warning" class="goal-warning"></p>
+          <div class="acc-actions goal-stats-actions">
+            <button id="goal-reload-account" class="ghost" type="button">Reload from account</button>
+            <button id="goal-reset-stats" class="ghost" type="button">Reset to defaults</button>
+          </div>
+        </div>
+      </details>
+    </section>
+
+    <section class="panel results-panel">
+      <h2>3. Estimate</h2>
+      <div id="goal-results" aria-live="polite"></div>
+    </section>
+
+    <section class="panel">
+      <details>
+        <summary>How this estimate works</summary>
+        <p>Goal ETA turns the amount still missing into time at your measured ore per hour. Everything is an estimate, not a promise.</p>
+        <ul>
+          <li><strong>Ore goal:</strong> <code>ore remaining = max(0, target &minus; current ore)</code>, then <code>play hours = ore remaining &divide; ore per hour</code>.</li>
+          <li><strong>Bar goal:</strong> <code>bars per ore = bar output multiplier &times; craft multiplier &divide; effective ore cost</code>. The ore still to mine is the ore needed for the remaining bars, minus the ore you already have.</li>
+          <li><strong>Calendar time:</strong> <code>calendar days = play hours &divide; play hours per day</code>. The finish date assumes you spread those hours evenly from now.</li>
+          <li><strong>Deadline:</strong> available play time is the wall-clock time before the deadline scaled by your hours per day. The required rate is the ore remaining divided by that play time.</li>
+          <li><strong>Milestones:</strong> 25%, 50%, 75%, and 100% of the target, with the same rate and hours-per-day assumptions.</li>
+        </ul>
+        <p class="hint">Caveats: ore per hour varies by world, pickaxe, rock layout, upgrades, and how actively you play. Bar conversion ignores ore spent on other bars, bombs, or upgrades, and the craft multipliers are random, so short sessions can differ a lot from the average. A deadline assumes you actually play the hours you entered. Current ore and bar balances are not in ExportStats, so keep those fields up to date yourself.</p>
+      </details>
+    </section>
+  </div>
 </main>
 
 <footer>
   <p>Fishing model ported from the community Google Sheet <em>Let's Go Fishing - V2.0.6</em>.
-    Bomb comparison uses community formulas and wiki bar costs. Not affiliated with the game.
-    Verify before spending gems.</p>
+    Bomb comparison and Goal ETA use community crafting formulas and wiki bar costs. Not affiliated
+    with the game. Verify before spending gems.</p>
 </footer>
 
 <script src="model.js"></script>
@@ -244,7 +390,9 @@
 <script src="exportstats.js"></script>
 <script src="account.js"></script>
 <script src="bombdata.js"></script>
+<script src="goaldata.js"></script>
 <script src="bombs.js"></script>
+<script src="goals.js"></script>
 <script src="sample.js"></script>
 <script src="app.js"></script>
 </body>

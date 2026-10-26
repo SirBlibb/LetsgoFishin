@@ -64,6 +64,14 @@ function findByRowName(rows, name) {
 
 var byId = {};
 global.window = global;
+global.localStorage = (function () {
+  var mem = {};
+  return {
+    getItem: function (k) { return Object.prototype.hasOwnProperty.call(mem, k) ? mem[k] : null; },
+    setItem: function (k, v) { mem[k] = String(v); },
+    removeItem: function (k) { delete mem[k]; }
+  };
+})();
 global.document = {
   readyState: "complete",
   createElement: makeNode,
@@ -77,17 +85,32 @@ require("../model.js");
 require("../data.js");
 require("../fishcosts.js");
 require("../exportstats.js");
+require("../account.js");
 require("../sample.js");
+require("../bombdata.js");
+require("../bombs.js");
 require("../app.js");
 
 var FM = global.FishModel;
 var ES = global.ExportStats;
+
+function countOptions(scope) {
+  var n = 0;
+  scope.children.forEach(function (c) {
+    if (c.tagName === "option") n++;
+    n += countOptions(c);
+  });
+  return n;
+}
 
 var fails = 0;
 function check(name, cond) { if (!cond) { fails++; console.log("FAIL " + name); } }
 
 /* ---- default-state render ---------------------------------------- */
 var rows = rowsOf();
+check("home view visible by default", byId["view-home"].hidden === false);
+check("fishing view hidden by default", byId["view-fishing"].hidden === true);
+check("bombs view hidden by default", byId["view-bombs"].hidden === true);
 check("settings has 4 fields", byId["settings"].children.length === 4);
 check("upgrades rendered", byId["upgrades"].children.length >= 3);
 check("cards table rendered", byId["cards"].children.length >= 2);
@@ -95,6 +118,14 @@ check("scalars rendered", byId["scalars"].children.length >= 5);
 check("results table has 21 rows", rows.length === 21);
 check("results row has 10 cells", rows[0].children.length === 10);
 check("undo disabled with no history", byId["btn-undo"].disabled === true);
+
+check("bomb level dropdown has 86 options", countOptions(byId["bomb-level"]) === 86);
+check("bomb results rendered", byId["bomb-results"].children.length > 0);
+check("bomb stats rendered", byId["bomb-stats"].children.length >= 3);
+check("bomb stats include bar output multiplier", !!byId["bomb-stat-barOutputMulti"]);
+check("bomb table rendered", byId["bomb-table"].children.length >= 1);
+check("bomb stats open without an account", byId["bomb-stats-details"].open === true);
+check("bomb stats show defaults", byId["bomb-stats-source"].textContent.indexOf("Defaults") >= 0);
 
 var frows = fishRowsOf();
 check("fish table has 18 rows", frows.length === 18);
@@ -139,6 +170,22 @@ check("fish level reverted", fishRod.children[2].textContent === String(startFis
 fire(byId["btn-sample"], "click");
 rows = rowsOf();
 
+var storedAccount = global.AccountStore.load();
+check("sample import saves the account record", !!storedAccount && storedAccount.version === "v2.2.20");
+check("account record keeps the raw export", !!storedAccount && storedAccount.raw.indexOf("fishing_enhance_array") >= 0);
+check("account summary rendered", byId["account-summary"].children.length > 0);
+check("fishing tool badge shows the account", byId["fishing-badge"].textContent === "Account loaded");
+check("bomb tool badge shows the account", byId["bombs-badge"].textContent === "Account loaded");
+check("bomb stats loaded from account", byId["bomb-stats-source"].textContent.indexOf("From account (15/15 fields)") >= 0);
+check("bomb bar output loaded from account", byId["bomb-stat-barOutputMulti"].value.indexOf("21.568") === 0);
+check("bomb stats warning cleared", byId["bomb-stats-warning"].textContent === "");
+check("bomb verdict favours BoP at Tin", byId["bomb-verdict-text"].textContent.indexOf("Bomb of Plenty produces") >= 0);
+check("bomb breakpoint names Mithril and Adamant",
+  byId["bomb-breakpoint-main"].textContent.indexOf("Mithril") >= 0 &&
+  byId["bomb-breakpoint-main"].textContent.indexOf("Adamant") >= 0);
+check("bomb table summary counts", byId["bomb-table-summary"].textContent.indexOf("3 BoP") >= 0 &&
+  byId["bomb-table-summary"].textContent.indexOf("83 Transmuter") >= 0);
+
 var imported = ES.apply(ES.parseExport(window.SAMPLE_EXPORT).stats, FM.defaultInputs()).inputs;
 var expect = FM.computeModel(imported).rows.filter(function (r) { return r.rankable; });
 var rankable = expect.length;
@@ -179,6 +226,39 @@ rows = rowsOf();
 check("undo disabled again", byId["btn-undo"].disabled === true);
 topRow = findByRowName(rows, topName);
 check("level reverted", topRow.children[2].textContent === String(startLevel));
+
+/* ---- bomb comparison interactions --------------------------------- */
+var levelSel = byId["bomb-level"];
+levelSel.value = "4";
+fire(levelSel, "change");
+check("bomb level changed to Adamant", global.BombTool.getState().level === 4);
+check("bomb verdict favours Transmuter at Adamant",
+  byId["bomb-verdict-text"].textContent.indexOf("Transmuter Bomb produces") >= 0);
+
+var bopBarsBefore = byId["bomb-bop-bars"].textContent;
+byId["bomb-ore"].value = "2000";
+fire(byId["bomb-ore"], "input");
+check("bomb ore amount is remembered", global.BombTool.getState().ore === 2000);
+check("bomb bars scale with the ore amount", byId["bomb-bop-bars"].textContent !== bopBarsBefore);
+
+var bopInput = byId["bomb-stat-bombOfPlentyMulti"];
+bopInput.value = "300";
+fire(bopInput, "input");
+check("bomb manual edit marks the account values as edited",
+  global.BombTool.getState().source === "account-edited");
+
+fire(byId["bomb-reset-stats"], "click");
+check("bomb reset returns to defaults", global.BombTool.getState().source === "defaults");
+check("bomb reset keeps the selected level", global.BombTool.getState().level === 4);
+
+fire(byId["bomb-reload-account"], "click");
+check("bomb reload restores the account", global.BombTool.getState().source === "account");
+check("bomb reload keeps the selected level", global.BombTool.getState().level === 4);
+
+fire(byId["btn-clear"], "click");
+check("bomb reset from the home page returns to defaults", global.BombTool.getState().source === "defaults");
+check("bomb badge returns to manual entry", byId["bombs-badge"].textContent === "Manual entry");
+check("bomb source label returns to defaults", byId["bomb-stats-source"].textContent.indexOf("Defaults") >= 0);
 
 console.log("rows: " + rows.length + " | rankable: " + rankable + " | top: " + topName + " | badges: " + badges);
 console.log(fails === 0 ? "UI SMOKE OK" : fails + " FAILED");

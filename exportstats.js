@@ -23,9 +23,11 @@
       obj = JSON.parse(raw);
     }
     if (!obj || typeof obj !== "object") throw new Error("Not an ExportStats object");
-    if (obj.stats && typeof obj.stats === "object") return { version: obj.version || "?", stats: obj.stats };
+    if (obj.stats && typeof obj.stats === "object") {
+      return { version: obj.version || "?", time: obj.time, stats: obj.stats };
+    }
     // allow a bare stats object
-    return { version: obj.version || "?", stats: obj };
+    return { version: obj.version || "?", time: obj.time, stats: obj };
   }
 
   function cloneInputs(inp) {

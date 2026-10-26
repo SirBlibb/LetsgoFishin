@@ -3,102 +3,248 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Let's Go Fishing - Gem Upgrade Optimizer</title>
+<title>Obelisk Miner Tools</title>
 <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-<header>
-  <h1>Let's Go Fishing <span class="sub">Gem Upgrade Optimizer</span></h1>
-  <p class="tagline">Ranks every fishing gem upgrade by how much fish/time it adds per gem spent. Import your
-    <code>ExportStats</code> JSON to fill everything automatically.</p>
+<header class="site-header">
+  <div class="header-inner">
+    <div>
+      <h1><a class="brand-link" href="#/home">Obelisk Miner <span class="sub">Tools</span></a></h1>
+      <p class="tagline">Load your account once, then open a tool. Everything stays in your browser.</p>
+    </div>
+    <nav class="site-nav" aria-label="Tools">
+      <a href="#/home" data-nav="home">Home</a>
+      <a href="#/fishing" data-nav="fishing">Fishing optimizer</a>
+      <a href="#/bombs" data-nav="bombs">Bomb comparison</a>
+    </nav>
+  </div>
 </header>
 
 <main>
-  <section class="panel">
-    <h2>1. Import your stats</h2>
-    <div class="import-controls">
-      <input type="file" id="import-file" accept=".json,application/json">
-      <button id="btn-sample" type="button">Load sample</button>
-      <button id="btn-clear" type="button">Reset</button>
-    </div>
-    <label class="import-label" for="import-text">Paste ExportStats JSON</label>
-    <textarea id="import-text" placeholder="Paste ExportStats JSON here, or drag a .json file onto the page..."></textarea>
-    <div class="import-controls import-apply">
-      <button id="btn-paste" class="ghost" type="button">Paste from clipboard</button>
-      <button id="btn-parse" type="button">Apply JSON</button>
-    </div>
-    <div id="import-status" class="import-status"></div>
-    <p class="hint save-note" id="save-note"></p>
-    <details>
-      <summary>How to get this file</summary>
-      <p>In the game, open <em>Settings &rarr; Export Stats</em> (or the equivalent ExportStats button), copy the
-        text, and paste it above. Everything the game records is mapped automatically; anything it does not
-        record is left for you to fill in by hand below.</p>
-    </details>
-  </section>
-
-  <section class="panel">
-    <h2>2. Settings</h2>
-    <div id="settings" class="grid"></div>
-  </section>
-
-  <section class="panel acc-panel" id="input-accordion">
-    <p class="hint acc-hint">Open a section to edit it. Only one stays open, so the rankings below stay within reach.</p>
-    <details class="acc" id="acc-upgrades">
-      <summary>
-        <span class="acc-title">3. Upgrade levels</span>
-        <span class="acc-sub">Gem upgrades and fish-purchased levels</span>
-        <span class="acc-icon" aria-hidden="true"></span>
-      </summary>
-      <div class="acc-body">
-        <div id="upgrades"></div>
-        <div class="acc-actions"><button class="ghost acc-close" type="button">Close &amp; view rankings</button></div>
+  <!-- ============================ HOME ============================ -->
+  <div id="view-home" class="view">
+    <section class="panel">
+      <h2>1. Load your account</h2>
+      <p class="lead">Paste the game's <code>ExportStats</code> JSON once. It is saved in this browser and reused by every tool.</p>
+      <div class="import-controls">
+        <input type="file" id="import-file" accept=".json,application/json">
+        <button id="btn-sample" type="button">Load sample</button>
+        <button id="btn-clear" type="button">Reset</button>
       </div>
-    </details>
-    <details class="acc" id="acc-cards">
-      <summary>
-        <span class="acc-title">4. Fish cards (per dock)</span>
-        <span class="acc-sub">Tier-1, legendary, and tribute levels</span>
-        <span class="acc-icon" aria-hidden="true"></span>
-      </summary>
-      <div class="acc-body">
-        <div id="cards"></div>
-        <div class="acc-actions"><button class="ghost acc-close" type="button">Close &amp; view rankings</button></div>
+      <label class="import-label" for="import-text">Paste ExportStats JSON</label>
+      <textarea id="import-text" placeholder="Paste ExportStats JSON here, or drag a .json file onto the page..."></textarea>
+      <div class="import-controls import-apply">
+        <button id="btn-paste" class="ghost" type="button">Paste from clipboard</button>
+        <button id="btn-parse" type="button">Apply JSON</button>
       </div>
-    </details>
-    <details class="acc" id="acc-scalars">
-      <summary>
-        <span class="acc-title">5. Other bonuses</span>
-        <span class="acc-sub">Bundles, statues, pets, and skill-tree extras</span>
-        <span class="acc-icon" aria-hidden="true"></span>
-      </summary>
-      <div class="acc-body">
-        <div id="scalars"></div>
-        <div class="acc-actions"><button class="ghost acc-close" type="button">Close &amp; view rankings</button></div>
+      <div id="import-status" class="import-status"></div>
+      <div id="account-summary" class="account-summary"></div>
+      <p class="hint save-note" id="save-note"></p>
+      <details>
+        <summary>How to get this file</summary>
+        <p>In the game, open <em>Settings &rarr; Export Stats</em> (or the equivalent ExportStats button), copy the
+          text, and paste it above. Everything the game records is mapped automatically; anything it does not
+          record is left for you to fill in by hand inside a tool.</p>
+      </details>
+    </section>
+
+    <section class="panel">
+      <h2>2. Open a tool</h2>
+      <p class="lead">Your account is shared by every tool here. Open one now, or come back after importing a new export.</p>
+      <div class="tool-grid">
+        <article class="tool-card">
+          <div class="tool-card-head">
+            <div>
+              <h3>Let's Go Fishing</h3>
+              <p class="tool-kicker">Gem upgrade optimizer</p>
+            </div>
+            <span id="fishing-badge" class="badge">Manual entry</span>
+          </div>
+          <p>Ranks every fishing gem upgrade by the fish/time it adds per gem spent, plus the upgrades bought with fish.</p>
+          <div class="tool-card-footer">
+            <span id="fishing-account-note" class="hint"></span>
+            <a class="button-link" href="#/fishing">Open tool</a>
+          </div>
+        </article>
+
+        <article class="tool-card">
+          <div class="tool-card-head">
+            <div>
+              <h3>Bomb of Plenty vs Transmuter</h3>
+              <p class="tool-kicker">Bar income comparison</p>
+            </div>
+            <span id="bombs-badge" class="badge">Manual entry</span>
+          </div>
+          <p>Compares expected bars from both bombs at any bar level, then shows the winner and your breakpoint.</p>
+          <div class="tool-card-footer">
+            <span id="bombs-account-note" class="hint"></span>
+            <a class="button-link" href="#/bombs">Open tool</a>
+          </div>
+        </article>
       </div>
-    </details>
-  </section>
+    </section>
+  </div>
 
-  <section class="panel results-panel" id="ranking">
-    <h2>6. Ranking</h2>
-    <div id="results"></div>
-  </section>
+  <!-- =========================== FISHING ========================== -->
+  <div id="view-fishing" class="view" hidden>
+    <section class="panel tool-header-panel">
+      <a class="back-link" href="#/home">&larr; All tools</a>
+      <div class="tool-title-row">
+        <div>
+          <h2>Let's Go Fishing <span class="title-sub">Gem Upgrade Optimizer</span></h2>
+          <p class="lead">Ranks every fishing gem upgrade by how much fish/time it adds per gem spent.</p>
+        </div>
+      </div>
+      <div class="tool-account-bar">
+        <span id="tool-account-status" class="hint"></span>
+        <a class="ghost-link" href="#/home">Change account data</a>
+      </div>
+    </section>
 
-  <section class="panel results-panel">
-    <h2>7. Fish upgrade ranking (bought with fish)</h2>
-    <div id="fish-results"></div>
-  </section>
+    <section class="panel">
+      <h2>1. Settings</h2>
+      <div id="settings" class="grid"></div>
+    </section>
+
+    <section class="panel acc-panel" id="input-accordion">
+      <p class="hint acc-hint">Open a section to edit it. Only one stays open, so the rankings below stay within reach.</p>
+      <details class="acc" id="acc-upgrades">
+        <summary>
+          <span class="acc-title">2. Upgrade levels</span>
+          <span class="acc-sub">Gem upgrades and fish-purchased levels</span>
+          <span class="acc-icon" aria-hidden="true"></span>
+        </summary>
+        <div class="acc-body">
+          <div id="upgrades"></div>
+          <div class="acc-actions"><button class="ghost acc-close" type="button">Close &amp; view rankings</button></div>
+        </div>
+      </details>
+      <details class="acc" id="acc-cards">
+        <summary>
+          <span class="acc-title">3. Fish cards (per dock)</span>
+          <span class="acc-sub">Tier-1, legendary, and tribute levels</span>
+          <span class="acc-icon" aria-hidden="true"></span>
+        </summary>
+        <div class="acc-body">
+          <div id="cards"></div>
+          <div class="acc-actions"><button class="ghost acc-close" type="button">Close &amp; view rankings</button></div>
+        </div>
+      </details>
+      <details class="acc" id="acc-scalars">
+        <summary>
+          <span class="acc-title">4. Other bonuses</span>
+          <span class="acc-sub">Bundles, statues, pets, and skill-tree extras</span>
+          <span class="acc-icon" aria-hidden="true"></span>
+        </summary>
+        <div class="acc-body">
+          <div id="scalars"></div>
+          <div class="acc-actions"><button class="ghost acc-close" type="button">Close &amp; view rankings</button></div>
+        </div>
+      </details>
+    </section>
+
+    <section class="panel results-panel" id="ranking">
+      <h2>5. Ranking</h2>
+      <div id="results"></div>
+    </section>
+
+    <section class="panel results-panel">
+      <h2>6. Fish upgrade ranking (bought with fish)</h2>
+      <div id="fish-results"></div>
+    </section>
+  </div>
+
+  <!-- ============================ BOMBS =========================== -->
+  <div id="view-bombs" class="view" hidden>
+    <section class="panel tool-header-panel">
+      <a class="back-link" href="#/home">&larr; All tools</a>
+      <div class="tool-title-row">
+        <div>
+          <h2>Bomb Comparison <span class="title-sub">Bomb of Plenty vs Transmuter</span></h2>
+          <p class="lead">See which bomb produces more bars at the bar level you are crafting, and where the winner changes.</p>
+        </div>
+      </div>
+      <div class="tool-account-bar">
+        <span id="bombs-account-status" class="hint"></span>
+        <a class="ghost-link" href="#/home">Change account data</a>
+      </div>
+    </section>
+
+    <section class="panel">
+      <h2>1. Pick a bar level</h2>
+      <div class="bomb-controls">
+        <label class="field">
+          <span class="field-label">Bar level</span>
+          <select id="bomb-level"></select>
+        </label>
+        <label class="field">
+          <span class="field-label">Base ore per bomb</span>
+          <input id="bomb-ore" type="number" min="1" step="any" value="1000">
+        </label>
+      </div>
+      <p class="hint" id="bomb-level-note"></p>
+      <p class="hint">A bar level is the ore tier you are crafting (Tin is level 1), not a dungeon floor. Leave the ore amount at 1,000 for an easy comparison.</p>
+      <div id="bomb-results" aria-live="polite"></div>
+    </section>
+
+    <section class="panel acc-panel">
+      <details class="acc" id="bomb-stats-details">
+        <summary>
+          <span class="acc-title">2. Your stats</span>
+          <span class="acc-sub" id="bomb-stats-source">Defaults - enter your stats</span>
+          <span class="acc-icon" aria-hidden="true"></span>
+        </summary>
+        <div class="acc-body">
+          <div id="bomb-stats"></div>
+          <p id="bomb-stats-warning" class="bomb-warning"></p>
+          <div class="acc-actions bomb-stats-actions">
+            <button id="bomb-reload-account" class="ghost" type="button">Reload from account</button>
+            <button id="bomb-reset-stats" class="ghost" type="button">Reset to defaults</button>
+          </div>
+        </div>
+      </details>
+    </section>
+
+    <section class="panel">
+      <h2>3. Every bar level</h2>
+      <p class="lead">The same comparison across all known bars. The selected level is highlighted.</p>
+      <details class="bomb-table-details">
+        <summary id="bomb-table-summary">Show all bar levels</summary>
+        <div id="bomb-table"></div>
+      </details>
+    </section>
+
+    <section class="panel">
+      <details>
+        <summary>How this comparison works</summary>
+        <p>Both sides are expected bars per base ore, using the community Transmuter calculator's formulas. A bar level is the ore tier (Tin is level 1), not a dungeon floor.</p>
+        <ul>
+          <li><strong>Craft multiplier</strong> combines the free-craft chance with the 2x, 3x, 5x, 10x, 20x, and 100x craft chances.</li>
+          <li><strong>Bomb of Plenty</strong> multiplies the affected ore, applies the natural and BoP golden-ore chances, then crafts all of that ore into bars.</li>
+          <li><strong>Transmuter</strong> turns the affected ore directly into bars, can also apply a BoP stack, and the remaining ore is crafted normally.</li>
+          <li><strong>Breakpoint</strong> is the effective ore cost per bar where the two totals are equal. Cheaper bars favour Bomb of Plenty; more expensive bars favour Transmuter.</li>
+          <li><strong>Bar output multiplier</strong> applies to bars from crafting and from the Transmuter Bomb, so it changes the bar totals but not the winner or breakpoint.</li>
+        </ul>
+        <p class="hint">Bar costs use the wiki's current values through Neopolium (World 4). Effective cost is <code>max(1, floor(base cost &times; craft-cost multiplier))</code>, following the community calculator with a minimum of 1 ore per bar. Golden ore and BoP interactions are expected values, not guaranteed outcomes. Using both bombs together (for example with a spoon auto-firing both) is always better than using either one alone. <a href="https://tabatkins.com/obelisk/transmuter/" target="_blank" rel="noopener">Community calculator</a> · <a href="https://shminer.miraheze.org/wiki/Craft" target="_blank" rel="noopener">Wiki bar costs</a></p>
+      </details>
+    </section>
+  </div>
 </main>
 
 <footer>
-  <p>Model ported from the community Google Sheet <em>Let's Go Fishing - V2.0.6</em>.
-    Not affiliated with the game. Verify against the sheet before committing gems.</p>
+  <p>Fishing model ported from the community Google Sheet <em>Let's Go Fishing - V2.0.6</em>.
+    Bomb comparison uses community formulas and wiki bar costs. Not affiliated with the game.
+    Verify before spending gems.</p>
 </footer>
 
 <script src="model.js"></script>
 <script src="data.js"></script>
 <script src="fishcosts.js"></script>
 <script src="exportstats.js"></script>
+<script src="account.js"></script>
+<script src="bombdata.js"></script>
+<script src="bombs.js"></script>
 <script src="sample.js"></script>
 <script src="app.js"></script>
 </body>

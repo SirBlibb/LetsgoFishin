@@ -21,6 +21,7 @@ function check(name, cond) {
 }
 
 check("version", parsed.version === "v2.2.20");
+check("export time is exposed", typeof parsed.time === "number");
 check("G3", res.inputs.G[3] === 60);
 check("G22", res.inputs.G[22] === 100);
 check("G38 (skill 42)", res.inputs.G[38] === 3);

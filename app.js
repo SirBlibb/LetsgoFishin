@@ -9,6 +9,7 @@
   var UI = window.UI_SPEC;
   var ES = window.ExportStats;
   var FD = window.FISH_DATA;
+  var ACCOUNT = window.AccountStore || null;
 
   var STORAGE_KEY = "lgf-optimizer-state-v1";
   var saveTimer = null;
@@ -16,6 +17,7 @@
   var savedState = loadSavedState();
   var state = savedState || FM.defaultInputs();
   var restoredSaved = !!savedState;
+  var accountRecord = ACCOUNT ? ACCOUNT.load() : null;
   var importReport = null;
   var lastRanks = null;
   var lastBase = null;
@@ -201,6 +203,129 @@
   }
 
   /* ---------------------------------------------------------------- */
+  /* shared account summary                                           */
+  /* ---------------------------------------------------------------- */
+
+  function fmtExportTime(v) {
+    if (v === null || v === undefined || v === "") return "not provided";
+    if (typeof v === "string") return v;
+    if (typeof v === "number" && isFinite(v)) {
+      return v.toLocaleString("en-US", { maximumFractionDigits: 2 });
+    }
+    return "not provided";
+  }
+
+  function fmtLocalDateTime(iso) {
+    if (!iso) return "not recorded";
+    var d = new Date(iso);
+    if (isNaN(d.getTime())) return String(iso);
+    return d.toLocaleString("en-US");
+  }
+
+  function accountFact(grid, label, value) {
+    var f = el("div", "account-fact");
+    f.appendChild(el("span", "account-fact-key", label));
+    f.appendChild(el("span", "account-fact-value", value));
+    grid.appendChild(f);
+  }
+
+  function renderAccountSummary() {
+    var root = document.getElementById("account-summary");
+    if (!root) return;
+    root.innerHTML = "";
+
+    if (!accountRecord) {
+      if (restoredSaved) {
+        root.className = "account-summary";
+        var savedHead = el("div", "account-summary-head");
+        savedHead.appendChild(el("span", "account-dot"));
+        savedHead.appendChild(el("strong", null, "Saved tool details"));
+        root.appendChild(savedHead);
+        root.appendChild(el("p", "account-note",
+          "Your previous settings were restored from this browser, but the raw ExportStats JSON was not stored. " +
+          "Import a fresh export to save it and share it across tools."));
+      } else {
+        root.className = "account-summary empty";
+        root.appendChild(el("p", "account-empty",
+          "No account JSON loaded yet. You can still open a tool and enter values by hand."));
+      }
+      updateToolStatus();
+      return;
+    }
+
+    root.className = "account-summary";
+    var head = el("div", "account-summary-head");
+    head.appendChild(el("span", "account-dot ok"));
+    head.appendChild(el("strong", null, "Account loaded"));
+    root.appendChild(head);
+
+    var grid = el("div", "account-facts");
+    accountFact(grid, "Game version", accountRecord.version || "unknown");
+    accountFact(grid, "Exported", fmtExportTime(accountRecord.exportedAt));
+    accountFact(grid, "Source", accountRecord.source || "Imported JSON");
+    accountFact(grid, "Imported", fmtLocalDateTime(accountRecord.importedAt));
+    if (typeof accountRecord.applied === "number") {
+      var mapped = accountRecord.applied + " filled";
+      if (typeof accountRecord.missing === "number" && accountRecord.missing > 0) {
+        mapped += ", " + accountRecord.missing + " manual";
+      }
+      accountFact(grid, "Fields", mapped);
+    }
+    root.appendChild(grid);
+    updateToolStatus();
+  }
+
+  function updateToolStatus() {
+    var hasAccount = !!accountRecord;
+    var hasDetails = hasAccount || restoredSaved;
+    var versionSuffix = hasAccount && accountRecord.version ? " (" + accountRecord.version + ")" : "";
+
+    var badge = document.getElementById("fishing-badge");
+    if (badge) {
+      badge.textContent = hasAccount ? "Account loaded" : (hasDetails ? "Saved details" : "Manual entry");
+      badge.className = "badge" + (hasDetails ? " ok" : "");
+    }
+
+    var note = document.getElementById("fishing-account-note");
+    if (note) {
+      note.textContent = hasAccount
+        ? "Using your saved " + (accountRecord.version || "") + " account details."
+        : (hasDetails
+          ? "Using details saved in this browser."
+          : "No account yet - the tool also works with manual entry.");
+    }
+
+    var status = document.getElementById("tool-account-status");
+    if (status) {
+      status.textContent = hasAccount
+        ? "Using your saved account" + (accountRecord.version ? " (" + accountRecord.version + ")" : "") + "."
+        : (hasDetails
+          ? "Using details saved in this browser. Import a fresh JSON on the home page to refresh them."
+          : "No account JSON loaded - enter values manually, or import one on the home page.");
+    }
+
+    var bombBadge = document.getElementById("bombs-badge");
+    if (bombBadge) {
+      bombBadge.textContent = hasAccount ? "Account loaded" : "Manual entry";
+      bombBadge.className = "badge" + (hasAccount ? " ok" : "");
+    }
+
+    var bombNote = document.getElementById("bombs-account-note");
+    if (bombNote) {
+      bombNote.textContent = hasAccount
+        ? "Using your saved account" + versionSuffix + " stats."
+        : "No account yet - all bomb and crafting stats can be entered by hand.";
+    }
+
+    var bombStatus = document.getElementById("bombs-account-status");
+    if (bombStatus) {
+      bombStatus.textContent = hasAccount
+        ? "Using your saved account" + versionSuffix + "."
+        : "No account JSON loaded - enter bomb and crafting stats manually, or import one on the home page.";
+    }
+  }
+
+  /* ---------------------------------------------------------------- */
   /* settings                                                         */
   /* ---------------------------------------------------------------- */
 
@@ -283,7 +408,7 @@
     });
 
     var sec2 = el("div", "subsection");
-    sec2.appendChild(el("h3", null, "Fishing - Upgrades (bought with fish, ranked in section 7)"));
+    sec2.appendChild(el("h3", null, "Fishing - Upgrades (bought with fish, ranked in section 6)"));
     var grid2 = el("div", "grid");
     UI.UPGRADE_INPUTS.forEach(function (u) { grid2.appendChild(upgradeField(u.row, u.label + " (max " + u.max + ")", u.max)); });
     sec2.appendChild(grid2);
@@ -628,17 +753,31 @@
 
   function applyImport(raw, source) {
     try {
-      var parsed = ES.parseExport(raw);
+      var rawText = typeof raw === "string" ? raw : JSON.stringify(raw);
+      var parsed = ES.parseExport(rawText);
       var res = ES.apply(parsed.stats, FM.defaultInputs());
       var hideLocked = !!state.hideLocked;
       state = res.inputs;
       state.hideLocked = hideLocked;
       importReport = res;
+      accountRecord = {
+        raw: rawText,
+        source: source,
+        version: parsed.version || "?",
+        exportedAt: parsed.time,
+        importedAt: new Date().toISOString(),
+        applied: res.applied.length,
+        missing: res.missing.length
+      };
+      if (ACCOUNT) ACCOUNT.save(accountRecord);
+      if (window.BombTool) window.BombTool.refreshAccount();
+      restoredSaved = true;
       clearHistory();
       rebuild();
-      showReport("Imported " + source + " (v" + parsed.version + "): " +
+      renderAccountSummary();
+      showReport("Imported " + source + " (" + parsed.version + "): " +
         res.applied.length + " fields filled, " + res.missing.length +
-        " missing (set manually below).", res.missing.length === 0);
+        " missing (set manually inside the tool).", res.missing.length === 0);
     } catch (e) {
       showReport("Import failed: " + e.message, false);
     }
@@ -682,10 +821,15 @@
       state = FM.defaultInputs();
       importReport = null;
       restoredSaved = false;
+      accountRecord = null;
+      if (ACCOUNT) ACCOUNT.clear();
+      if (window.BombTool) window.BombTool.refreshAccount();
       clearHistory();
       rebuild();
       forgetSavedState();
-      showReport("Reset to defaults and cleared the saved details.", true);
+      ta.value = "";
+      renderAccountSummary();
+      showReport("Reset to defaults and cleared the saved account details.", true);
     });
 
     var file = document.getElementById("import-file");
@@ -737,6 +881,63 @@
     });
   }
 
+  /* ---------------------------------------------------------------- */
+  /* home / tool views                                                */
+  /* ---------------------------------------------------------------- */
+
+  var VIEW_IDS = { home: "view-home", fishing: "view-fishing", bombs: "view-bombs" };
+
+  function routeFromHash(hash) {
+    var h = String(hash || "").replace(/^#\/?/, "").toLowerCase();
+    if (h === "fishing" || h === "fishing-optimizer") return "fishing";
+    if (h === "bombs" || h === "bomb" || h === "bomb-comparison" || h === "transmuter") return "bombs";
+    return "home";
+  }
+
+  function currentView() {
+    if (typeof window === "undefined" || !window.location) return "home";
+    return routeFromHash(window.location.hash);
+  }
+
+  function renderView() {
+    var view = currentView();
+
+    Object.keys(VIEW_IDS).forEach(function (name) {
+      var node = document.getElementById(VIEW_IDS[name]);
+      if (node) node.hidden = name !== view;
+    });
+
+    var links = document.querySelectorAll ? document.querySelectorAll("[data-nav]") : [];
+    Array.prototype.forEach.call(links, function (link) {
+      var active = link.getAttribute && link.getAttribute("data-nav") === view;
+      if (!link.classList) return;
+      if (active) link.classList.add("active");
+      else link.classList.remove("active");
+    });
+
+    if (document.title !== undefined) {
+      document.title = view === "fishing"
+        ? "Let's Go Fishing - Gem Upgrade Optimizer"
+        : view === "bombs"
+          ? "Bomb of Plenty vs Transmuter - Obelisk Miner Tools"
+          : "Obelisk Miner Tools";
+    }
+  }
+
+  function onRouteChange() {
+    renderView();
+    if (typeof window !== "undefined" && typeof window.scrollTo === "function") {
+      window.scrollTo(0, 0);
+    }
+  }
+
+  function initRouter() {
+    if (typeof window !== "undefined" && window.addEventListener) {
+      window.addEventListener("hashchange", onRouteChange);
+    }
+    renderView();
+  }
+
   function update() {
     var model = FM.computeModel(state);
     renderResults(document.getElementById("results"), model);
@@ -753,14 +954,17 @@
   }
 
   function init() {
+    initRouter();
     initImport();
     initAccordion();
     rebuild();
+    renderAccountSummary();
+    if (window.BombTool) window.BombTool.init();
 
     var note = document.getElementById("save-note");
     if (note) {
       note.textContent = getStorage()
-        ? "Your details are saved automatically in this browser."
+        ? "Your account and tool settings are saved automatically in this browser."
         : "This browser is blocking local storage, so details will not be remembered.";
     }
 
@@ -769,8 +973,8 @@
     }
 
     showReport(restoredSaved
-      ? "Restored your saved details from this browser."
-      : "Enter values manually, or import your game's ExportStats JSON.", true);
+      ? "Restored your saved fishing details from this browser. Open a tool below, or import a fresh JSON."
+      : "Paste your ExportStats JSON above, or open a tool and enter values manually.", true);
   }
 
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", init);

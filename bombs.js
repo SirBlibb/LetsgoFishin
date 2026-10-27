@@ -19,6 +19,10 @@
     values: BD ? BD.defaults() : {},
     level: 1,
     ore: 1000,
+    mode: "bar",
+    floor: 1,
+    portalChance: 0,
+    portalMulti: 1,
     source: "defaults",
     account: null,
     applied: 0,
@@ -93,6 +97,26 @@
     return w;
   }
 
+  function fmtShare(n) {
+    return (Math.round(n * 10000) / 100) + "%";
+  }
+
+  function mixLabel(info) {
+    return info.ores.map(function (ore) {
+      return ore.bar.name + " " + fmtShare(ore.weight);
+    }).join(" / ");
+  }
+
+  function floorOptionLabel(info) {
+    return "Floor " + info.floor + " - " + mixLabel(info);
+  }
+
+  function portalLabel(result) {
+    var mix = result.portal || result.mix;
+    if (!mix || !(mix.chance > 0)) return "no portals";
+    return fmtPct(mix.chance) + " portal chance at " + fmtFactor(mix.multi) + "x";
+  }
+
   /* ---------------------------------------------------------------- */
   /* account                                                          */
   /* ---------------------------------------------------------------- */
@@ -116,25 +140,42 @@
 
   function applyAccount(acct) {
     var mapped = BD.fromAccountStats(acct.stats);
+    var context = BD.fromAccountContext(acct.stats);
     state.values = mapped.values;
     state.source = "account";
     state.account = acct;
     state.applied = mapped.applied.length;
     state.missing = mapped.missing.length;
+    state.floor = context.floor;
+    state.portalChance = context.portalChance;
+    state.portalMulti = context.portalMulti;
     if (state.missing > 0 && nodes.statsDetails) nodes.statsDetails.open = true;
     fillStatsInputs();
+    fillContextInputs();
+    syncModeUI();
     updateSourceNote();
     update();
   }
 
-  function resetToDefaults() {
+  function resetToDefaults(resetContext) {
     state.values = BD.defaults();
     state.source = "defaults";
     state.account = null;
     state.applied = 0;
     state.missing = BD.FIELDS.length;
+    if (resetContext) {
+      state.level = 1;
+      state.ore = 1000;
+      state.mode = "bar";
+      state.floor = 1;
+      state.portalChance = 0;
+      state.portalMulti = 1;
+      if (nodes.ore) nodes.ore.value = state.ore;
+    }
     if (nodes.statsDetails) nodes.statsDetails.open = true;
     fillStatsInputs();
+    fillContextInputs();
+    syncModeUI();
     updateSourceNote();
     update();
   }
@@ -146,7 +187,7 @@
     if (acct && acct.stats) {
       applyAccount(acct);
     } else {
-      resetToDefaults();
+      resetToDefaults(true);
     }
   }
 
@@ -211,6 +252,26 @@
     nodes.level.value = String(state.level);
   }
 
+  function renderFloorOptions() {
+    if (!nodes.floor) return;
+    nodes.floor.innerHTML = "";
+
+    BD.FLOOR_ZONES.forEach(function (zone) {
+      var og = el("optgroup");
+      og.label = "World " + zone.world + " - " + zone.name;
+      for (var floor = zone.startFloor; floor <= zone.endFloor; floor++) {
+        var info = BD.floorInfo(floor);
+        if (!info) continue;
+        var o = el("option", null, floorOptionLabel(info));
+        o.value = String(floor);
+        og.appendChild(o);
+      }
+      nodes.floor.appendChild(og);
+    });
+
+    nodes.floor.value = String(state.floor);
+  }
+
   function renderStats() {
     if (!nodes.stats) return;
     nodes.stats.innerHTML = "";
@@ -259,10 +320,86 @@
     });
   }
 
+  function fillContextInputs() {
+    if (nodes.floor) nodes.floor.value = String(state.floor);
+    if (nodes.portalChance) nodes.portalChance.value = inputValue(state.portalChance);
+    if (nodes.portalMulti) nodes.portalMulti.value = inputValue(state.portalMulti);
+  }
+
+  function syncModeUI() {
+    var floorMode = state.mode === "floor";
+    if (nodes.modeBar) nodes.modeBar.checked = !floorMode;
+    if (nodes.modeFloor) nodes.modeFloor.checked = floorMode;
+    if (nodes.levelField) nodes.levelField.hidden = floorMode;
+    if (nodes.floorField) nodes.floorField.hidden = !floorMode;
+    if (nodes.portalChanceField) nodes.portalChanceField.hidden = !floorMode;
+    if (nodes.portalMultiField) nodes.portalMultiField.hidden = !floorMode;
+    if (nodes.levelNote) nodes.levelNote.hidden = floorMode;
+    if (nodes.floorNote) nodes.floorNote.hidden = !floorMode;
+    if (nodes.oreLabel) {
+      nodes.oreLabel.textContent = floorMode ? "Native ore (before portals)" : "Base ore per bomb";
+    }
+    if (nodes.modeNote) {
+      nodes.modeNote.textContent = floorMode
+        ? "Floor mode uses the floor's natural ore mix, then applies the portal chance and multiplier to every native ore."
+        : "Bar level mode compares one ore tier. Void Drone floor mode estimates a floor's mixed ore after portals.";
+    }
+    if (nodes.tableTitle) {
+      nodes.tableTitle.textContent = floorMode ? "3. Every floor" : "3. Every bar level";
+    }
+    if (nodes.tableLead) {
+      nodes.tableLead.textContent = floorMode
+        ? "The same floor-mix comparison for all 132 dungeon floors, grouped by zone. The selected floor is highlighted."
+        : "The same comparison across all known bars, split by world. The selected level is highlighted.";
+    }
+  }
+
   function bindControls() {
+    function setMode(mode) {
+      state.mode = mode === "floor" ? "floor" : "bar";
+      syncModeUI();
+      update();
+    }
+
+    if (nodes.modeBar) {
+      nodes.modeBar.addEventListener("change", function () {
+        if (nodes.modeBar.checked) setMode("bar");
+      });
+    }
+
+    if (nodes.modeFloor) {
+      nodes.modeFloor.addEventListener("change", function () {
+        if (nodes.modeFloor.checked) setMode("floor");
+      });
+    }
+
     if (nodes.level) {
       nodes.level.addEventListener("change", function () {
         state.level = parseInt(nodes.level.value, 10) || 1;
+        update();
+      });
+    }
+
+    if (nodes.floor) {
+      nodes.floor.addEventListener("change", function () {
+        var info = BD.floorInfo(parseInt(nodes.floor.value, 10));
+        state.floor = info ? info.floor : 1;
+        update();
+      });
+    }
+
+    if (nodes.portalChance) {
+      nodes.portalChance.addEventListener("input", function () {
+        var v = parseFloat(nodes.portalChance.value);
+        state.portalChance = isFinite(v) ? Math.max(0, Math.min(100, v)) : 0;
+        update();
+      });
+    }
+
+    if (nodes.portalMulti) {
+      nodes.portalMulti.addEventListener("input", function () {
+        var v = parseFloat(nodes.portalMulti.value);
+        state.portalMulti = isFinite(v) ? Math.max(1, v) : 1;
         update();
       });
     }
@@ -290,7 +427,7 @@
     }
 
     if (nodes.reset) {
-      nodes.reset.addEventListener("click", function () { resetToDefaults(); });
+      nodes.reset.addEventListener("click", function () { resetToDefaults(false); });
     }
   }
 
@@ -306,10 +443,11 @@
       note += " With your " + fmtFactor(result.costMultiplier) + "x multiplier: " +
         fmtInt(row.effectiveCost) + " ore per bar.";
     }
+    note += " A bar level is the ore tier, not a dungeon floor.";
     nodes.levelNote.textContent = note;
   }
 
-  function bombCard(kind, title, total, details, winner) {
+  function bombCard(kind, title, total, details, winner, note) {
     var card = el("article", "bomb-card" + (winner === kind ? " winner" : ""));
     card.id = "bomb-" + kind + "-card";
 
@@ -321,7 +459,8 @@
     var figure = el("div", "bomb-figure", fmt(total));
     figure.id = "bomb-" + kind + "-bars";
     card.appendChild(figure);
-    card.appendChild(el("div", "bomb-figure-note", "bars from " + fmtInt(state.ore) + " base ore"));
+    card.appendChild(el("div", "bomb-figure-note",
+      note || ("bars from " + fmtInt(state.ore) + " base ore")));
 
     var dl = el("dl", "bomb-breakdown");
     details.forEach(function (item) {
@@ -438,6 +577,170 @@
     root.appendChild(bp);
   }
 
+  function renderFloorNote(info, result) {
+    if (!nodes.floorNote) return;
+    var mix = result.portal;
+    var parts = [];
+    parts.push("Floor " + info.floor + " (" + info.zone + ", World " + info.world + ").");
+    parts.push("Native mix: " + mixLabel(info) + ".");
+    if (mix.chance > 0) {
+      parts.push("Portals: " + fmtPct(mix.chance) + " chance at " + fmtFactor(mix.multi) + "x.");
+    } else {
+      parts.push("Void portals are off.");
+    }
+    parts.push("Expected ore yield: " + fmtFactor(mix.totalYield) + "x native ore.");
+    nodes.floorNote.textContent = parts.join(" ");
+  }
+
+  function renderNativeRows(info, result) {
+    var sec = el("div", "bomb-native");
+    sec.id = "bomb-native";
+    sec.appendChild(el("h3", null, "Native ore on floor " + info.floor));
+    sec.appendChild(el("p", "hint",
+      "If you only care about one ore, this is the ordinary bar-level winner for that ore. The floor verdict above combines both."));
+
+    var table = el("table", "bomb-table bomb-native-table");
+    var thead = el("thead");
+    var hr = el("tr");
+    ["Ore", "Level", "Floor share", "BoP bars/ore", "Trans bars/ore", "Better", "Margin"]
+      .forEach(function (label) { hr.appendChild(el("th", null, label)); });
+    thead.appendChild(hr);
+    table.appendChild(thead);
+
+    var tbody = el("tbody");
+    result.nativeRows.forEach(function (row) {
+      var tr = el("tr");
+      tr.id = "bomb-native-row-" + row.level;
+      tr.appendChild(el("td", "name", row.bar.name));
+      tr.appendChild(el("td", "num", String(row.level)));
+      tr.appendChild(el("td", "num", fmtShare(row.weight)));
+      tr.appendChild(el("td", "num", fmt(row.bopPerOre)));
+      tr.appendChild(el("td", "num", fmt(row.transPerOre)));
+      var winner = row.winner === "bop" ? "BoP" : row.winner === "trans" ? "Trans" : "Tie";
+      tr.appendChild(el("td", "bomb-winner " + row.winner, winner));
+      tr.appendChild(el("td", "num", row.winner === "tie" ? "-" : fmtPct(row.advantage)));
+      tbody.appendChild(tr);
+    });
+    table.appendChild(tbody);
+    sec.appendChild(scrollWrap(table));
+    return sec;
+  }
+
+  function renderFloorResults(result) {
+    var root = nodes.results;
+    if (!root) return;
+    root.innerHTML = "";
+
+    var info = result.floor;
+    var ore = state.ore;
+    var bopBars = result.bopBarsPerBase * ore;
+    var transBars = result.transBarsPerBase * ore;
+    var directBars = result.directTransBarsPerBase * ore;
+    var craftedBars = result.craftedTransBarsPerBase * ore;
+    var winner = result.winner;
+
+    var verdict = el("div", "bomb-verdict " +
+      (winner === "bop" ? "win-bop" : winner === "trans" ? "win-trans" : "win-tie"));
+    verdict.id = "bomb-verdict";
+
+    var badgeText = winner === "bop" ? "Bomb of Plenty wins" : winner === "trans" ? "Transmuter wins" : "Effectively tied";
+    verdict.appendChild(el("span", "bomb-verdict-badge", badgeText + " on this floor"));
+
+    var main;
+    if (winner === "tie" || result.advantage * 100 < 0.005) {
+      main = "Both bombs produce essentially the same bars from floor " + info.floor + "'s expected ore mix.";
+    } else {
+      main = (winner === "bop" ? "Bomb of Plenty" : "Transmuter Bomb") + " produces " +
+        fmtPct(result.advantage) + " more bars from floor " + info.floor + "'s expected ore mix.";
+    }
+    var verdictText = el("p", "bomb-verdict-text", main);
+    verdictText.id = "bomb-verdict-text";
+    verdict.appendChild(verdictText);
+    var sub = el("p", "bomb-verdict-sub",
+      "From " + fmtInt(ore) + " native ore with " + portalLabel(result) + ": " +
+      fmt(bopBars) + " bars with Bomb of Plenty vs " + fmt(transBars) + " with Transmuter.");
+    sub.id = "bomb-verdict-sub";
+    verdict.appendChild(sub);
+    root.appendChild(verdict);
+
+    var figureNote = "bars from " + fmtInt(ore) + " native floor ore";
+    var cards = el("div", "bomb-cards");
+    cards.appendChild(bombCard("bop", "Bomb of Plenty", bopBars, [
+      ["Portal yield", fmtFactor(result.totalYield) + "x"],
+      ["Ore after BoP", fmt(result.bopOre * result.totalYield * ore)],
+      ["Craft multiplier", fmt(result.craftMultiplier) + "x"],
+      ["Effective mix cost", fmtBreakpoint(result.mixCost) + " ore/bar"]
+    ], winner, figureNote));
+    cards.appendChild(bombCard("trans", "Transmuter Bomb", transBars, [
+      ["Portal yield", fmtFactor(result.totalYield) + "x"],
+      ["Direct bars", fmt(directBars)],
+      ["Crafted leftovers", fmt(craftedBars)],
+      ["Effective mix cost", fmtBreakpoint(result.mixCost) + " ore/bar"]
+    ], winner, figureNote));
+    root.appendChild(cards);
+
+    if (Math.abs(result.barOutputMultiplier - 1) > 1e-9) {
+      root.appendChild(el("p", "hint",
+        "Both totals include your " + fmtFactor(result.barOutputMultiplier) + "x bar output multiplier."));
+    }
+
+    var bp = el("div", "bomb-breakpoint");
+    bp.id = "bomb-breakpoint";
+    bp.appendChild(el("h3", null, "Floor breakpoint"));
+
+    var line;
+    if (winner === "tie") {
+      line = "This floor's expected mix is effectively at your breakpoint.";
+    } else if (isFinite(result.transition) && result.transition > 0) {
+      line = "This floor's mix costs " + fmtBreakpoint(result.mixCost) + " effective ore per bar, " +
+        (winner === "trans" ? "above" : "below") + " your " +
+        fmtBreakpoint(result.transition) + " breakpoint.";
+    } else {
+      line = winner === "trans"
+        ? "Transmuter wins on this floor's expected mix."
+        : "Bomb of Plenty wins on this floor's expected mix.";
+    }
+    var breakpointMain = el("p", "bomb-breakpoint-main", line);
+    breakpointMain.id = "bomb-breakpoint-main";
+    bp.appendChild(breakpointMain);
+
+    var detail;
+    if (isFinite(result.transition) && result.transition > 0) {
+      detail = "Breakpoint: " + fmtBreakpoint(result.transition) + " effective ore per bar";
+      if (result.costMultiplier > 0 && Math.abs(result.costMultiplier - 1) > 1e-9) {
+        detail += " (" + fmtBreakpoint(result.baseTransition) + " base ore per bar at " +
+          fmtFactor(result.costMultiplier) + "x).";
+      } else {
+        detail += ".";
+      }
+    } else if (isFinite(result.transition)) {
+      detail = "The breakpoint is at or below zero, outside the known bar costs.";
+    } else {
+      detail = "The breakpoint is above the most expensive known bar.";
+    }
+    bp.appendChild(el("p", "hint", detail));
+
+    if (result.totalYield > 1 + 1e-9) {
+      bp.appendChild(el("p", "hint",
+        "Void portals add " + fmtPct(result.totalYield - 1) + " more ore before bomb effects."));
+    }
+    if (!(result.portal.chance > 0)) {
+      bp.appendChild(el("p", "hint",
+        "Set the portal chance above 0 to include Void Drone portals in this floor comparison."));
+    } else if (result.portal.multi <= 1 + 1e-9) {
+      bp.appendChild(el("p", "hint",
+        "A portal multiplier of 1x makes portals a pure ore downgrade; they add no extra ore."));
+    }
+    bp.appendChild(el("p", "hint",
+      "Portal ore is spread uniformly from Tin up to each native ore's level. The portal multiplier only applies to portaled ore, so it can move the mix's effective cost."));
+    if (Math.abs(result.costMultiplier - 1) > 1e-9) {
+      bp.appendChild(el("p", "hint",
+        "Effective cost is rounded down after the craft-cost multiplier, so a floor right at the breakpoint can differ from the unrounded estimate."));
+    }
+    root.appendChild(bp);
+    root.appendChild(renderNativeRows(info, result));
+  }
+
   function renderTable(result) {
     if (!nodes.table) return;
     nodes.table.innerHTML = "";
@@ -521,16 +824,108 @@
     }
   }
 
+  function renderFloorTable() {
+    if (!nodes.table) return;
+    nodes.table.innerHTML = "";
+
+    var table = el("table", "bomb-table bomb-floor-table");
+    var portalText = state.portalChance > 0
+      ? fmtFactor(state.portalChance) + "% portal chance at " + fmtFactor(state.portalMulti) + "x"
+      : "portals off";
+    table.appendChild(el("caption", null,
+      "Expected bars from " + fmtInt(state.ore) + " native ore · " + portalText));
+
+    var thead = el("thead");
+    var hr = el("tr");
+    ["Floor", "Native ores", "Portal yield", "Mix cost", "BoP bars", "Trans bars", "Better", "Margin"]
+      .forEach(function (label) { hr.appendChild(el("th", null, label)); });
+    thead.appendChild(hr);
+    table.appendChild(thead);
+
+    var bopWins = 0;
+    var transWins = 0;
+    var ties = 0;
+
+    BD.FLOOR_ZONES.forEach(function (zone, zoneIndex) {
+      var tbody = el("tbody", "bomb-world");
+      tbody.id = "bomb-zone-" + (zoneIndex + 1);
+
+      var first = BD.floorInfo(zone.startFloor);
+      var last = BD.floorInfo(zone.endFloor);
+      var zoneRow = el("tr", "bomb-world-head");
+      var zoneHead = el("th");
+      zoneHead.colSpan = 8;
+      zoneHead.scope = "colgroup";
+      zoneHead.appendChild(el("span", "bomb-world-name", "World " + zone.world + " - " + zone.name));
+      zoneHead.appendChild(el("span", "bomb-world-meta",
+        "Floors " + zone.startFloor + "-" + zone.endFloor + " · " +
+        first.ores[0].bar.name + " to " + last.ores[1].bar.name + " · " +
+        zone.floors + " floors"));
+      zoneRow.appendChild(zoneHead);
+      tbody.appendChild(zoneRow);
+
+      for (var floor = zone.startFloor; floor <= zone.endFloor; floor++) {
+        var info = BD.floorInfo(floor);
+        var mix = BD.portalMix(info, state.portalChance, state.portalMulti);
+        var result = BD.analyseMix(state.values, mix);
+        if (!result) continue;
+
+        if (result.winner === "bop") bopWins++;
+        else if (result.winner === "trans") transWins++;
+        else ties++;
+
+        var tr = el("tr");
+        if (info.floor === state.floor) tr.className = "selected";
+        tr.id = "bomb-floor-row-" + info.floor;
+
+        tr.appendChild(el("td", "num", String(info.floor)));
+        tr.appendChild(el("td", "name bomb-floor-ores", mixLabel(info)));
+        tr.appendChild(el("td", "num", fmtFactor(mix.totalYield) + "x"));
+        tr.appendChild(el("td", "num", fmtBreakpoint(result.mixCost)));
+        tr.appendChild(el("td", "num", fmt(result.bopBarsPerBase * state.ore)));
+        tr.appendChild(el("td", "num", fmt(result.transBarsPerBase * state.ore)));
+
+        var winner = result.winner === "bop" ? "BoP" : result.winner === "trans" ? "Trans" : "Tie";
+        tr.appendChild(el("td", "bomb-winner " + result.winner, winner));
+        tr.appendChild(el("td", "num", result.winner === "tie" ? "-" : fmtPct(result.advantage)));
+
+        tbody.appendChild(tr);
+      }
+
+      table.appendChild(tbody);
+    });
+
+    nodes.table.appendChild(scrollWrap(table));
+
+    if (nodes.tableSummary) {
+      var parts = [];
+      if (bopWins) parts.push(bopWins + " BoP");
+      if (transWins) parts.push(transWins + " Transmuter");
+      if (ties) parts.push(ties + " tie" + (ties === 1 ? "" : "s"));
+      nodes.tableSummary.textContent = "Show all " + BD.FLOOR_COUNT + " floors" +
+        (parts.length ? " (" + parts.join(", ") + ")" : "");
+    }
+  }
+
   function update() {
     if (!BD) return;
     var result = BD.analyse(state.values);
     var bar = BD.barByLevel(state.level) || BD.BARS[0];
     state.level = bar.level;
-    var row = result.rows[bar.level - 1];
 
-    renderLevelNote(bar, row, result);
-    renderResults(bar, row, result);
-    renderTable(result);
+    if (state.mode === "floor") {
+      var info = BD.floorInfo(state.floor) || BD.floorInfo(1);
+      state.floor = info.floor;
+      var floorResult = BD.analyseFloor(state.values, state.floor, state.portalChance, state.portalMulti);
+      renderFloorNote(info, floorResult);
+      renderFloorResults(floorResult);
+      renderFloorTable();
+    } else {
+      var row = result.rows[bar.level - 1];
+      renderLevelNote(bar, row, result);
+      renderResults(bar, row, result);
+      renderTable(result);
+    }
   }
 
   /* ---------------------------------------------------------------- */
@@ -539,9 +934,21 @@
 
   function cacheNodes() {
     nodes.level = document.getElementById("bomb-level");
+    nodes.levelField = document.getElementById("bomb-level-field");
+    nodes.floor = document.getElementById("bomb-floor");
+    nodes.floorField = document.getElementById("bomb-floor-field");
+    nodes.portalChance = document.getElementById("bomb-portal-chance");
+    nodes.portalChanceField = document.getElementById("bomb-portal-chance-field");
+    nodes.portalMulti = document.getElementById("bomb-portal-multi");
+    nodes.portalMultiField = document.getElementById("bomb-portal-multi-field");
+    nodes.modeBar = document.getElementById("bomb-mode-bar");
+    nodes.modeFloor = document.getElementById("bomb-mode-floor");
+    nodes.modeNote = document.getElementById("bomb-mode-note");
     nodes.ore = document.getElementById("bomb-ore");
+    nodes.oreLabel = document.getElementById("bomb-ore-label");
     nodes.results = document.getElementById("bomb-results");
     nodes.levelNote = document.getElementById("bomb-level-note");
+    nodes.floorNote = document.getElementById("bomb-floor-note");
     nodes.stats = document.getElementById("bomb-stats");
     nodes.statsDetails = document.getElementById("bomb-stats-details");
     nodes.statsSource = document.getElementById("bomb-stats-source");
@@ -550,6 +957,8 @@
     nodes.reset = document.getElementById("bomb-reset-stats");
     nodes.table = document.getElementById("bomb-table");
     nodes.tableSummary = document.getElementById("bomb-table-summary");
+    nodes.tableTitle = document.getElementById("bomb-table-title");
+    nodes.tableLead = document.getElementById("bomb-table-lead");
   }
 
   function init() {
@@ -558,8 +967,10 @@
     if (!nodes.results || !nodes.stats) return;
 
     renderLevelOptions();
+    renderFloorOptions();
     renderStats();
     bindControls();
+    syncModeUI();
 
     var acct = readAccount();
     if (acct && acct.stats) {
@@ -569,7 +980,16 @@
       state.source = "defaults";
       state.applied = 0;
       state.missing = BD.FIELDS.length;
+      state.mode = "bar";
+      state.level = 1;
+      state.ore = 1000;
+      state.floor = 1;
+      state.portalChance = 0;
+      state.portalMulti = 1;
+      if (nodes.ore) nodes.ore.value = state.ore;
       if (nodes.statsDetails) nodes.statsDetails.open = true;
+      fillContextInputs();
+      syncModeUI();
       updateSourceNote();
       update();
     }
@@ -580,8 +1000,12 @@
     refreshAccount: refreshAccount,
     getState: function () {
       return {
+        mode: state.mode,
         level: state.level,
         ore: state.ore,
+        floor: state.floor,
+        portalChance: state.portalChance,
+        portalMulti: state.portalMulti,
         source: state.source,
         values: BD ? BD.normalizeValues(state.values) : {}
       };

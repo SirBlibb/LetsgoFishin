@@ -3,7 +3,7 @@
 A static website with a shared **account importer** plus tools for *Idle Obelisk Miner*:
 
 - **Let's Go Fishing** ranks every fishing gem upgrade by how much fish/time it adds **per gem you spend**.
-- **Bomb Comparison** works out whether the **Bomb of Plenty** or **Transmuter Bomb** produces more bars at a chosen bar level.
+- **Bomb Comparison** works out whether the **Bomb of Plenty** or **Transmuter Bomb** produces more bars at a chosen bar level, or across a dungeon floor's Void Drone portal mix.
 - **Goal ETA** estimates how long an ore or bar target will take from a measured ore/hour rate, with progress, milestones, and the rate a deadline needs.
 
 The fishing optimizer is a faithful JavaScript port of the community Google Sheet **"Let's Go
@@ -13,8 +13,10 @@ Fishing - V2.0.6"** (`Obefish` tab). You can type your stats in by hand, or impo
 power-weighted fish spent (section 6).
 
 The bomb comparison follows the community Transmuter calculator's expected-value formulas and uses
-the wiki's bar costs through **Neopolium** (World 4). Goal ETA reuses the same bar costs and
-crafting formulas to turn a bar target into ore, then times it with your measured ore per hour.
+the wiki's bar costs through **Neopolium** (World 4). Its floor mode also uses the wiki's 132
+dungeon floors, their native 80/20 or 50/50 ore pairs, and the expected effect of Void Drone
+portals. Goal ETA reuses the same bar costs and crafting formulas to turn a bar target into ore,
+then times it with your measured ore per hour.
 
 No build step, no server: open `index.html` in a browser.
 
@@ -42,8 +44,8 @@ The home page (`#/home`) is the account hub:
 - The account summary shows the game version, export timestamp, source, import time, and how many
   fields were mapped.
 - Each tool card shows whether it will use the saved account or fall back to manual entry.
-- **Reset** clears the saved account, the fishing tool's settings, the bomb tool's current values,
-  and the goal tool's targets and measured rate.
+- **Reset** clears the saved account, the fishing tool's settings, the bomb tool's current values
+  and floor/portal inputs, and the goal tool's targets and measured rate.
 - Tools read the account through `window.AccountStore` (`account.js`), so future tools can be added
   without changing the import flow.
 
@@ -132,10 +134,19 @@ The *Fishing - Upgrades* rows (3-20) are bought with **fish**, not gems, so they
 
 ## Bomb of Plenty vs Transmuter (`#/bombs`)
 
-This tool compares the expected bars from each bomb at a selected **bar level**. A bar level is the
-ore tier you are crafting: Tin is level 1 and Neopolium is level 86 (World 4). It is not a dungeon
-floor. The **Base ore per bomb** input (default 1,000) scales the totals and means ore affected
-*before* bomb multipliers; it does not affect the breakpoint.
+This tool compares the expected bars from each bomb in two modes:
+
+- **Bar level** compares one ore tier: Tin is level 1 and Neopolium is level 86 (World 4). A bar
+  level is the ore tier you are crafting, not a dungeon floor.
+- **Void Drone floor** compares a whole dungeon floor's natural ore mix after Void Drone portals.
+  Pick any floor from 1 to 132; the tool shows the floor's native pair, expected portal yield, and
+  the resulting mix, then compares the bombs on that mix.
+
+The **Base ore per bomb** input (default 1,000) scales the totals. In floor mode it is labelled
+**Native ore (before portals)** and means floor ore before portal effects. It does not affect the
+breakpoint or the winner.
+
+### Bar level mode
 
 The selected level shows:
 
@@ -146,10 +157,37 @@ The selected level shows:
 
 The **All bar levels** table repeats the comparison for every known bar, split into World 1-4
 sections. The selected level is highlighted. The **Breakpoint** is an *effective* ore cost per bar:
-below it BoP wins, above it
-Transmuter wins. Effective cost follows the community calculator's `floor(base cost x
-bar_craft_cost_multi)` method, with a minimum of 1 ore per bar, so a level right at the breakpoint
-can move because of rounding.
+below it BoP wins, above it Transmuter wins. Effective cost follows the community calculator's
+`floor(base cost x bar_craft_cost_multi)` method, with a minimum of 1 ore per bar, so a level right
+at the breakpoint can move because of rounding.
+
+### Void Drone floor mode
+
+Dungeon floors are grouped into ore pairs. The first floor of a pair is **80% lower ore / 20% next
+ore**; the second floor of the pair is **50/50**. Stone has four pairs (floors 1-8), Magma has five
+(floors 9-18), and every other zone has three pairs. The 21 zones cover all 132 floors across
+Worlds 1-4.
+
+Void Drone portals are modelled per native ore. An ore of level `i` with native weight `w`:
+
+- keeps `(1 - p) x w` at level `i`, and
+- sends `p x w` through a portal, multiplied by the portal multiplier `m` and spread uniformly over
+  levels `1..i`.
+
+The **Void portal chance** (0-100%) and **Void portal multiplier** inputs are pre-filled from
+`void_portal_chance` and `void_portal_multi` when an account is loaded. The floor is pre-filled from
+`current_floor`. All three can be changed.
+
+Floor mode shows:
+
+- the selected floor's native ore pair, zone, and expected portal yield,
+- aggregate bars from each bomb for the mixed floor,
+- whether the floor mix is below or above the breakpoint,
+- a **Native ore on floor** table with the ordinary bar-level winner for each ore on that floor, and
+- an **All floors** table for all 132 floors, grouped by zone, with the selected floor highlighted.
+
+The floor verdict is an aggregate *bar-count* proxy: a mixed floor produces several bar types, so
+use the native-ore rows when you care about one specific bar.
 
 ### Auto-filled stats
 
@@ -173,10 +211,16 @@ the stats panel warns how many were missing.
 | `bomb_of_plenty_make_gold_chance` | Chance BoP turns ore golden |
 | `golden_ore_chance` | Natural golden ore chance |
 | `golden_ore_multi` | Golden ore multiplier |
+| `current_floor` | Starting dungeon floor in floor mode |
+| `void_portal_chance` | Void portal chance (%) |
+| `void_portal_multi` | Void portal multiplier |
+
+`current_floor`, `void_portal_chance`, and `void_portal_multi` only pre-fill the floor controls; they
+are not part of the 15 editable stat fields. The floor controls always remain editable.
 
 ### Formulas
 
-The expected-value model follows the community calculator:
+The expected-value model follows the community calculator. Bar level mode uses:
 
 - `toMult(p, n) = 1 + clamp(p / 100, 0, 1) * (n - 1)`
 - `craftMult = 1 / (1 - clamp(free / 100, 0, 0.99)) * toMult(x2, 2) * toMult(x3, 3) * ... * toMult(x100, 100)`
@@ -188,19 +232,51 @@ The expected-value model follows the community calculator:
 - `Transmuter bars = barOutput * (transmuterMult * T + craftMult * T / effectiveCost)`
 - `breakpoint = craftMult * (A - T) / (transmuterMult * T)`
 
+Floor mode rewrites the native pair into effective weights, including the portal multiplier:
+
+- `p = clamp(portalChance / 100, 0, 1)`, `m = max(1, portalMulti)`
+- for each native ore at level `i` with weight `w`:
+  `weights[i] += (1 - p) * w`, then for `j = 1..i`: `weights[j] += p * w * m / i`
+- `Y = sum(weights)`, `S = sum(weights[level] / effectiveCost[level])`,
+  `mixCost = Y / S`
+- `BoP floor bars = barOutput * craftMult * A * S`
+- `Transmuter floor bars = barOutput * (transmuterMult * T * Y + craftMult * T * S)`
+- BoP wins while `mixCost < breakpoint`; Transmuter wins above it.
+
+For a normalized native mix, the portal yield is `Y = 1 + p * (m - 1)`. At `p = 0` or `p = 1`, the
+portal multiplier only scales the whole mix, so it cancels out of `mixCost`; at an intermediate
+chance it changes how much weight sits on cheaper portal ore and can change the winner.
+
 Golden ore is handled as an expected value: natural golden ore is worth `goldenOreMulti`, BoP can
 convert more ore to golden, and those chances are blended before the BoP multiplier is applied.
 Bar output applies to both sides, so it scales the bar totals but does not move the breakpoint.
 
-Bar base costs and world numbers come from the wiki's *Craft* and *Ores* pages. Current data ends at
-Neopolium (World 4); if the game adds more bars, extend `BARS` in `bombdata.js`.
+Bar base costs and world numbers come from the wiki's
+[*Craft*](https://shminer.miraheze.org/wiki/Craft) and
+[*Ores*](https://shminer.miraheze.org/wiki/Ores) pages. Floor ranges and native ore pairs come from
+the wiki's [*Floors*](https://shminer.miraheze.org/wiki/Floors) page, and portal behaviour is based
+on the [community Transmuter calculator](https://tabatkins.com/obelisk/transmuter/) and the wiki's
+[*Drones*](https://shminer.miraheze.org/wiki/Drones) page. Current data ends at Neopolium (World 4)
+and floor 132; if the game adds more bars or floors, extend `BARS` or `FLOOR_ZONES` in
+`bombdata.js`.
 
 ### Caveats
 
+- **Floor bars are an aggregate.** A floor's effective mix covers several bar tiers, so the floor
+  verdict counts one bar from each tier equally. Use the **Native ore on floor** rows when you are
+  farming one specific bar; the bar-level mode remains the exact comparison for that bar.
+- **Portal modifiers are not fully modelled.** The tool assumes the natural 80/20 or 50/50 mix, a
+  uniform portal result from Tin up to each native ore's level, and no special floor variants.
+  Area-specific portal-chance modifiers (for example Hattium and Mintium have a 0.40x portal chance),
+  golden/rainbow/galactic portal upgrades, and special floor rules are not applied. Enter an
+  effective chance by hand if you need one of those modifiers.
+- **Whole-floor multipliers cancel.** Special floor multipliers such as prismatic or rainbow floors
+  scale all ore on the floor, so they scale both bombs equally and do not change the winner. They
+  are not included in the displayed bar totals.
 - Using **both** bombs together (for example with a spoon auto-firing both) is always better than
   using either one alone. The tool only compares one bomb at a time.
-- Golden ore and BoP stacking are random; the results are long-run expected values, not guarantees
-  for a single bomb.
+- Golden ore and BoP stacking are random, and portals are random; the results are long-run expected
+  values, not guarantees for a single bomb or floor.
 - The game may change costs or mechanics. Sanity-check important decisions against the wiki and the
   community calculator.
 
@@ -254,8 +330,8 @@ different bar counts.
 | `fishcosts.js` | Fish-upgrade cost tables + fish power ratings (`window.FISH_DATA`) |
 | `exportstats.js` | ExportStats -> inputs mapper (`window.ExportStats`) |
 | `account.js` | Shared saved-account storage (`window.AccountStore`) |
-| `bombdata.js` | Bar costs + bomb comparison formulas (`window.BombData`) |
-| `bombs.js` | Bomb comparison UI (`window.BombTool`) |
+| `bombdata.js` | Bar costs, floor/zone data, portal mix, and bomb formulas (`window.BombData`) |
+| `bombs.js` | Bomb comparison UI, bar and floor modes (`window.BombTool`) |
 | `goaldata.js` | Goal ETA + bar conversion maths (`window.GoalData`) |
 | `goals.js` | Goal ETA UI and measured-rate helper (`window.GoalTool`) |
 | `app.js` | View routing + fishing tool UI wiring + account import |
@@ -263,9 +339,9 @@ different bar counts.
 | `test/validate.js` | Model vs. the sheet's cached default values |
 | `test/validate_export.js` | Export mapping + full-sample run |
 | `test/validate_fish.js` | Fish data shape + fish ranking behaviour |
-| `test/validate_bombs.js` | Bomb formulas, breakpoints, and page wiring |
+| `test/validate_bombs.js` | Bomb formulas, floor/portal mixes, breakpoints, and page wiring |
 | `test/validate_goal.js` | Goal ETA formulas, bar conversion, and page wiring |
-| `test/ui_smoke.js` | Headless UI wiring smoke test |
+| `test/ui_smoke.js` | Headless UI wiring smoke test (all tools) |
 
 ## Running the tests
 

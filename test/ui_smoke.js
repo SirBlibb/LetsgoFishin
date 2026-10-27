@@ -40,6 +40,16 @@ function fishRowsOf() {
   return table.children[1].children;
 }
 
+function floorTableRowCount() {
+  var root = byId["bomb-table"];
+  var table = root.children[0].children[0]; // .table-scroll > table
+  var count = 0;
+  for (var i = 2; i < table.children.length; i++) {
+    count += table.children[i].children.length - 1; // minus the zone heading
+  }
+  return count;
+}
+
 function countUnblocked(rows) {
   var n = 0;
   rows.forEach(function (tr) { if (tr.className.indexOf("blocked") < 0) n++; });
@@ -338,6 +348,109 @@ fire(byId["bomb-reload-account"], "click");
 check("bomb reload restores the account", global.BombTool.getState().source === "account");
 check("bomb reload keeps the selected level", global.BombTool.getState().level === 4);
 
+/* ---- bomb floor mode --------------------------------------------- */
+var floorMode = byId["bomb-mode-floor"];
+floorMode.checked = true;
+fire(floorMode, "change");
+
+check("bomb switches to floor mode", global.BombTool.getState().mode === "floor");
+check("bar level field hidden in floor mode", byId["bomb-level-field"].hidden === true);
+check("floor controls visible in floor mode",
+  byId["bomb-floor-field"].hidden === false &&
+  byId["bomb-portal-chance-field"].hidden === false &&
+  byId["bomb-portal-multi-field"].hidden === false);
+check("floor selector has 132 options", countOptions(byId["bomb-floor"]) === 132);
+check("account pre-fills floor 129", global.BombTool.getState().floor === 129);
+check("account pre-fills the portal chance", global.BombTool.getState().portalChance === 0);
+check("account pre-fills the portal multiplier",
+  global.BombTool.getState().portalMulti === 142.2733375);
+check("floor select shows the account floor", byId["bomb-floor"].value === "129");
+check("floor note names the account floor and zone",
+  byId["bomb-floor-note"].textContent.indexOf("Floor 129") >= 0 &&
+  byId["bomb-floor-note"].textContent.indexOf("Candyland") >= 0);
+check("floor mode rewrites the table heading",
+  byId["bomb-table-title"].textContent === "3. Every floor");
+check("floor mode rewrites the table lead",
+  byId["bomb-table-lead"].textContent.indexOf("132 dungeon floors") >= 0);
+
+check("floor table has 21 zone groups", (function () {
+  for (var i = 1; i <= 21; i++) if (!byId["bomb-zone-" + i]) return false;
+  return true;
+})());
+check("Stone group holds a heading plus 8 floors", byId["bomb-zone-1"].children.length === 9);
+check("Magma group holds a heading plus 10 floors", byId["bomb-zone-2"].children.length === 11);
+check("later zone groups hold a heading plus 6 floors", byId["bomb-zone-3"].children.length === 7);
+check("floor table has 132 floor rows", floorTableRowCount() === 132);
+check("floor table ends at Neopolium",
+  byId["bomb-floor-row-132"].children[1].textContent.indexOf("Neopolium") >= 0);
+check("selected floor row is highlighted", byId["bomb-floor-row-129"].className === "selected");
+check("floor table summary counts the floors",
+  byId["bomb-table-summary"].textContent.indexOf("132 floors") >= 0);
+check("floor 129 verdict uses the floor mix",
+  byId["bomb-verdict-text"].textContent.indexOf("floor 129") >= 0);
+check("floor 129 favours Transmuter",
+  byId["bomb-verdict-text"].textContent.indexOf("Transmuter Bomb produces") >= 0);
+
+var floorSel = byId["bomb-floor"];
+floorSel.value = "5";
+fire(floorSel, "change");
+check("floor selection updates the state", global.BombTool.getState().floor === 5);
+check("floor 5 note names the Stone zone",
+  byId["bomb-floor-note"].textContent.indexOf("Stone") >= 0);
+check("floor 5 favours BoP",
+  byId["bomb-verdict-text"].textContent.indexOf("Bomb of Plenty produces") >= 0);
+check("floor 5 table row is highlighted", byId["bomb-floor-row-5"].className === "selected");
+check("native ore rows show both floor ores",
+  !!byId["bomb-native-row-3"] && !!byId["bomb-native-row-4"]);
+check("native Mithril favours BoP", byId["bomb-native-row-3"].children[5].textContent === "BoP");
+check("native Adamant favours Transmuter",
+  byId["bomb-native-row-4"].children[5].textContent === "Trans");
+
+var portalChance = byId["bomb-portal-chance"];
+var portalMulti = byId["bomb-portal-multi"];
+portalChance.value = "100";
+fire(portalChance, "input");
+portalMulti.value = "4";
+fire(portalMulti, "input");
+check("portal chance updates the state", global.BombTool.getState().portalChance === 100);
+check("portal multiplier updates the state", global.BombTool.getState().portalMulti === 4);
+check("floor note shows the portal chance and multiplier",
+  byId["bomb-floor-note"].textContent.indexOf("100.00%") >= 0 &&
+  byId["bomb-floor-note"].textContent.indexOf("4x") >= 0);
+check("floor note shows the portal yield",
+  byId["bomb-floor-note"].textContent.indexOf("4x native ore") >= 0);
+check("floor 5 still favours BoP through full portals",
+  byId["bomb-verdict-text"].textContent.indexOf("Bomb of Plenty produces") >= 0);
+check("floor table carries the portal yield", byId["bomb-floor-row-5"].children[2].textContent === "4x");
+
+fire(byId["bomb-reset-stats"], "click");
+check("bomb stat reset stays in floor mode", global.BombTool.getState().mode === "floor");
+check("bomb stat reset keeps the floor", global.BombTool.getState().floor === 5);
+check("bomb stat reset keeps the portal inputs",
+  global.BombTool.getState().portalChance === 100 &&
+  global.BombTool.getState().portalMulti === 4);
+check("bomb stat reset returns to defaults", global.BombTool.getState().source === "defaults");
+
+fire(byId["bomb-reload-account"], "click");
+check("bomb reload keeps floor mode", global.BombTool.getState().mode === "floor");
+check("bomb reload restores the account floor", global.BombTool.getState().floor === 129);
+check("bomb reload restores the account portals",
+  global.BombTool.getState().portalChance === 0 &&
+  global.BombTool.getState().portalMulti === 142.2733375);
+
+var barMode = byId["bomb-mode-bar"];
+barMode.checked = true;
+fire(barMode, "change");
+check("bar mode shows the level field", byId["bomb-level-field"].hidden === false);
+check("bar mode hides the floor controls",
+  byId["bomb-floor-field"].hidden === true &&
+  byId["bomb-portal-chance-field"].hidden === true &&
+  byId["bomb-portal-multi-field"].hidden === true);
+check("bar mode restores the table heading",
+  byId["bomb-table-title"].textContent === "3. Every bar level");
+check("bar mode restores the bar table",
+  byId["bomb-table"].children[0].children[0].children.length === 6);
+
 /* ---- goal bar interactions ---------------------------------------- */
 var modeBars = byId["goal-mode-bars"];
 modeBars.checked = true;
@@ -387,6 +500,15 @@ check("goal inputs are saved", !!storedGoal && storedGoal.mode === "bars" && sto
 
 fire(byId["btn-clear"], "click");
 check("bomb reset from the home page returns to defaults", global.BombTool.getState().source === "defaults");
+check("bomb reset from the home page returns to bar mode", global.BombTool.getState().mode === "bar");
+check("bomb reset restores the floor and portal inputs",
+  global.BombTool.getState().floor === 1 &&
+  global.BombTool.getState().portalChance === 0 &&
+  global.BombTool.getState().portalMulti === 1);
+check("bomb reset restores the level and base ore",
+  global.BombTool.getState().level === 1 && global.BombTool.getState().ore === 1000);
+check("bomb reset shows the bar level controls",
+  byId["bomb-level-field"].hidden === false && byId["bomb-floor-field"].hidden === true);
 check("bomb badge returns to manual entry", byId["bombs-badge"].textContent === "Manual entry");
 check("bomb source label returns to defaults", byId["bomb-stats-source"].textContent.indexOf("Defaults") >= 0);
 check("goal reset from the home page returns to manual", byId["goal-badge"].textContent === "Manual entry");

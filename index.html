@@ -77,7 +77,7 @@
             </div>
             <span id="bombs-badge" class="badge">Manual entry</span>
           </div>
-          <p>Compares expected bars from both bombs at any bar level, then shows the winner and your breakpoint.</p>
+          <p>Compares expected bars from both bombs at any bar level, or across a dungeon floor's Void Drone portal mix.</p>
           <div class="tool-card-footer">
             <span id="bombs-account-note" class="hint"></span>
             <a class="button-link" href="#/bombs">Open tool</a>
@@ -178,7 +178,7 @@
       <div class="tool-title-row">
         <div>
           <h2>Bomb Comparison <span class="title-sub">Bomb of Plenty vs Transmuter</span></h2>
-          <p class="lead">See which bomb produces more bars at the bar level you are crafting, and where the winner changes.</p>
+          <p class="lead">See which bomb produces more bars at the bar level you are crafting, or account for Void Drone portals on any dungeon floor.</p>
         </div>
       </div>
       <div class="tool-account-bar">
@@ -188,19 +188,43 @@
     </section>
 
     <section class="panel">
-      <h2>1. Pick a bar level</h2>
+      <h2>1. Pick a target</h2>
+      <div class="bomb-mode" role="group" aria-label="Comparison mode">
+        <label class="bomb-mode-option">
+          <input type="radio" id="bomb-mode-bar" name="bomb-mode" value="bar" checked>
+          <span>Bar level</span>
+        </label>
+        <label class="bomb-mode-option">
+          <input type="radio" id="bomb-mode-floor" name="bomb-mode" value="floor">
+          <span>Void Drone floor</span>
+        </label>
+      </div>
+      <p class="hint" id="bomb-mode-note">Bar level mode compares one ore tier. Void Drone floor mode estimates a floor's mixed ore after portals.</p>
+
       <div class="bomb-controls">
-        <label class="field">
+        <label class="field" id="bomb-level-field">
           <span class="field-label">Bar level</span>
           <select id="bomb-level"></select>
         </label>
+        <label class="field" id="bomb-floor-field" hidden>
+          <span class="field-label">Dungeon floor</span>
+          <select id="bomb-floor"></select>
+        </label>
         <label class="field">
-          <span class="field-label">Base ore per bomb</span>
+          <span class="field-label" id="bomb-ore-label">Base ore per bomb</span>
           <input id="bomb-ore" type="number" min="1" step="any" value="1000">
+        </label>
+        <label class="field" id="bomb-portal-chance-field" hidden>
+          <span class="field-label">Void portal chance (%)</span>
+          <input id="bomb-portal-chance" type="number" min="0" max="100" step="any" value="0">
+        </label>
+        <label class="field" id="bomb-portal-multi-field" hidden>
+          <span class="field-label">Void portal multiplier (x)</span>
+          <input id="bomb-portal-multi" type="number" min="1" step="any" value="1">
         </label>
       </div>
       <p class="hint" id="bomb-level-note"></p>
-      <p class="hint">A bar level is the ore tier you are crafting (Tin is level 1), not a dungeon floor. Leave the ore amount at 1,000 for an easy comparison.</p>
+      <p class="hint" id="bomb-floor-note" hidden></p>
       <div id="bomb-results" aria-live="polite"></div>
     </section>
 
@@ -223,8 +247,8 @@
     </section>
 
     <section class="panel">
-      <h2>3. Every bar level</h2>
-      <p class="lead">The same comparison across all known bars, split by world. The selected level is highlighted.</p>
+      <h2 id="bomb-table-title">3. Every bar level</h2>
+      <p class="lead" id="bomb-table-lead">The same comparison across all known bars, split by world. The selected level is highlighted.</p>
       <details class="bomb-table-details">
         <summary id="bomb-table-summary">Show all bar levels</summary>
         <div id="bomb-table"></div>
@@ -234,15 +258,16 @@
     <section class="panel">
       <details>
         <summary>How this comparison works</summary>
-        <p>Both sides are expected bars per base ore, using the community Transmuter calculator's formulas. A bar level is the ore tier (Tin is level 1), not a dungeon floor.</p>
+        <p>Both sides are expected bars per base ore, using the community Transmuter calculator's formulas. Bar level mode compares one ore tier. Void Drone floor mode starts with the floor's natural ore mix, applies portal upgrades, and compares the resulting mix.</p>
         <ul>
           <li><strong>Craft multiplier</strong> combines the free-craft chance with the 2x, 3x, 5x, 10x, 20x, and 100x craft chances.</li>
           <li><strong>Bomb of Plenty</strong> multiplies the affected ore, applies the natural and BoP golden-ore chances, then crafts all of that ore into bars.</li>
           <li><strong>Transmuter</strong> turns the affected ore directly into bars, can also apply a BoP stack, and the remaining ore is crafted normally.</li>
+          <li><strong>Void Drone floors</strong> use the floor's 80/20 or 50/50 ore pair. Each native ore has the portal chance to become a portal; a portaled ore becomes one uniformly random ore from Tin up to its own level and is multiplied by the portal multiplier.</li>
           <li><strong>Breakpoint</strong> is the effective ore cost per bar where the two totals are equal. Cheaper bars favour Bomb of Plenty; more expensive bars favour Transmuter.</li>
           <li><strong>Bar output multiplier</strong> applies to bars from crafting and from the Transmuter Bomb, so it changes the bar totals but not the winner or breakpoint.</li>
         </ul>
-        <p class="hint">Bar costs use the wiki's current values through Neopolium (World 4). Effective cost is <code>max(1, floor(base cost &times; craft-cost multiplier))</code>, following the community calculator with a minimum of 1 ore per bar. Golden ore and BoP interactions are expected values, not guaranteed outcomes. Using both bombs together (for example with a spoon auto-firing both) is always better than using either one alone. <a href="https://tabatkins.com/obelisk/transmuter/" target="_blank" rel="noopener">Community calculator</a> · <a href="https://shminer.miraheze.org/wiki/Craft" target="_blank" rel="noopener">Wiki bar costs</a></p>
+        <p class="hint">Bar costs use the wiki's current values through Neopolium (World 4). Effective cost is <code>max(1, floor(base cost &times; craft-cost multiplier))</code>, following the community calculator with a minimum of 1 ore per bar. Floor mode is an aggregate bar-count proxy: a mixed floor produces several bar types, so use the native-ore rows for a specific target bar. Golden ore and BoP interactions are expected values, not guaranteed outcomes. Using both bombs together (for example with a spoon auto-firing both) is always better than using either one alone. <a href="https://tabatkins.com/obelisk/transmuter/" target="_blank" rel="noopener">Community calculator</a> · <a href="https://shminer.miraheze.org/wiki/Craft" target="_blank" rel="noopener">Wiki bar costs</a> · <a href="https://shminer.miraheze.org/wiki/Floors" target="_blank" rel="noopener">Wiki floors</a></p>
       </details>
     </section>
   </div>

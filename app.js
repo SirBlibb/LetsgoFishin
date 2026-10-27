@@ -271,6 +271,25 @@
       }
       accountFact(grid, "Fields", mapped);
     }
+
+    var accountStats = null;
+    try {
+      var parsed = ES ? ES.parseExport(accountRecord.raw) : JSON.parse(accountRecord.raw);
+      accountStats = parsed && parsed.stats ? parsed.stats : parsed;
+    } catch (e) { /* summary is best-effort */ }
+    if (accountStats) {
+      if (typeof accountStats.current_floor === "number" && isFinite(accountStats.current_floor)) {
+        accountFact(grid, "Current floor", String(accountStats.current_floor));
+      }
+      if (typeof accountStats.void_portal_chance === "number" ||
+          typeof accountStats.void_portal_multi === "number") {
+        var portalChance = typeof accountStats.void_portal_chance === "number" ? accountStats.void_portal_chance : 0;
+        var portalMulti = typeof accountStats.void_portal_multi === "number" ? accountStats.void_portal_multi : 1;
+        accountFact(grid, "Void portals",
+          portalChance.toFixed(2) + "% at " + (Math.round(portalMulti * 10000) / 10000) + "x");
+      }
+    }
+
     root.appendChild(grid);
     updateToolStatus();
   }
@@ -313,15 +332,15 @@
     var bombNote = document.getElementById("bombs-account-note");
     if (bombNote) {
       bombNote.textContent = hasAccount
-        ? "Using your saved account" + versionSuffix + " stats."
-        : "No account yet - all bomb and crafting stats can be entered by hand.";
+        ? "Using your saved account" + versionSuffix + " stats, floor, and Void Drone values."
+        : "No account yet - bomb, crafting, and Void Drone values can be entered by hand.";
     }
 
     var bombStatus = document.getElementById("bombs-account-status");
     if (bombStatus) {
       bombStatus.textContent = hasAccount
-        ? "Using your saved account" + versionSuffix + "."
-        : "No account JSON loaded - enter bomb and crafting stats manually, or import one on the home page.";
+        ? "Using your saved account" + versionSuffix + ". Floor and void portal values are pre-filled."
+        : "No account JSON loaded - enter bomb, crafting, and Void Drone values manually, or import one on the home page.";
     }
 
     var goalBadge = document.getElementById("goal-badge");

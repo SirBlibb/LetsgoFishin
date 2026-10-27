@@ -364,9 +364,39 @@ footer { padding: 20px 24px 40px; color: var(--muted); font-size: 12px; text-ali
 td.num { white-space: nowrap; }
 
 /* bomb comparison */
+.bomb-mode {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 220px));
+  gap: 8px;
+  margin-bottom: 12px;
+}
+.bomb-mode-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel2);
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.bomb-mode-option:has(input:checked) {
+  border-color: rgba(47,129,247,.55);
+  background: rgba(47,129,247,.10);
+  color: #79c0ff;
+}
+.bomb-mode-option input[type=radio] {
+  width: auto;
+  margin: 0;
+  padding: 0;
+  accent-color: var(--accent);
+}
 .bomb-controls {
   display: grid;
-  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
   gap: 10px 14px;
   align-items: end;
 }
@@ -515,6 +545,13 @@ td.num { white-space: nowrap; }
 .bomb-winner.bop { color: #79c0ff; }
 .bomb-winner.trans { color: #7ee787; }
 .bomb-winner.tie { color: var(--muted); }
+.bomb-floor-table { min-width: 880px; }
+.bomb-native { margin-top: 14px; }
+.bomb-native h3 { margin: 0 0 4px; }
+.bomb-native .hint { margin-top: 0; }
+.bomb-native-table { min-width: 760px; }
+.bomb-native-table td.name { white-space: nowrap; }
+.bomb-floor-ores { white-space: nowrap; }
 
 /* goal eta */
 .goal-mode {
@@ -728,6 +765,7 @@ td.num { white-space: nowrap; }
   .stat { padding: 6px 10px; }
 
   .bomb-controls { grid-template-columns: 1fr; }
+  .bomb-mode { grid-template-columns: 1fr; }
   .bomb-cards { grid-template-columns: 1fr; }
   .bomb-figure { font-size: 24px; }
   .bomb-verdict-text { font-size: 15px; }

@@ -725,11 +725,65 @@ td.num { white-space: nowrap; }
 
 .goal-note { margin-top: 12px; }
 
+/* contract point planner */
+.contracts-budget-controls { max-width: 520px; }
+.contracts-weights {
+  display: grid;
+  gap: 8px;
+  margin: 4px 0 10px;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel2);
+}
+.contracts-weight-row {
+  display: grid;
+  grid-template-columns: 120px minmax(0, 1fr) 52px;
+  gap: 10px;
+  align-items: center;
+}
+.contracts-weight-label { color: var(--muted); font-size: 13px; font-weight: 600; }
+.contracts-weight-value {
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 700;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.contracts-weight-row input[type=range] {
+  width: 100%;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  accent-color: var(--accent);
+  background: transparent;
+  border: 0;
+}
+.contracts-presets { display: flex; flex-wrap: wrap; gap: 8px; margin: 10px 0 0; }
+.contracts-levels-table td.name { white-space: nowrap; }
+.contracts-levels-table input[type=number] { width: 72px; }
+.contracts-plan-table td.name { white-space: nowrap; }
+.contracts-ranking-table td.effect { color: var(--muted); font-size: 12px; white-space: nowrap; }
+.contracts-ranking-table td.note { white-space: nowrap; }
+
 @media (max-width: 640px) {
   header { padding: 18px 16px 12px; }
   .header-inner { flex-direction: column; gap: 12px; }
-  .site-nav { width: 100%; }
-  .site-nav a { flex: 1 1 0; padding: 8px 4px; text-align: center; white-space: normal; font-size: 12px; line-height: 1.2; }
+  .site-nav {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    width: 100%;
+    gap: 6px;
+  }
+  .site-nav a {
+    min-width: 0;
+    padding: 8px 4px;
+    text-align: center;
+    white-space: normal;
+    font-size: 12px;
+    line-height: 1.2;
+  }
+  .site-nav a:last-child { grid-column: span 2; }
   h1 { font-size: 20px; }
   h1 .sub { display: block; font-size: 15px; margin-top: 2px; }
   main { padding: 10px; gap: 12px; }

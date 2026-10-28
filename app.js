@@ -362,6 +362,22 @@
         ? "Using your saved account" + versionSuffix + " for crafting stats. Current ore and bars are entered by hand."
         : "No account JSON loaded - enter current ore, bars, and crafting stats manually, or import one on the home page.";
     }
+
+    var contractsBadge = document.getElementById("contracts-badge");
+    if (contractsBadge) {
+      contractsBadge.textContent = hasAccount ? "Account loaded" : "Manual entry";
+      contractsBadge.className = "badge" + (hasAccount ? " ok" : "");
+    }
+
+    var contractsNote = document.getElementById("contracts-account-note");
+    if (contractsNote) {
+      contractsNote.textContent = hasAccount
+        ? "Uses your saved account" + versionSuffix + " contract levels, caps, OB gates, and cost reduction."
+        : "No account yet - contract levels, caps, and OB gates can be entered by hand.";
+    }
+
+    // ContractTool owns #contracts-account-status so it can include the exact
+    // OB level, cap increase, and cost reduction it is planning with.
   }
 
   /* ---------------------------------------------------------------- */
@@ -811,6 +827,7 @@
       if (ACCOUNT) ACCOUNT.save(accountRecord);
       if (window.BombTool) window.BombTool.refreshAccount();
       if (window.GoalTool) window.GoalTool.refreshAccount();
+      if (window.ContractTool) window.ContractTool.refreshAccount();
       restoredSaved = true;
       clearHistory();
       rebuild();
@@ -865,12 +882,13 @@
       if (ACCOUNT) ACCOUNT.clear();
       if (window.BombTool) window.BombTool.refreshAccount();
       if (window.GoalTool) window.GoalTool.resetAll();
+      if (window.ContractTool) window.ContractTool.resetAll();
       clearHistory();
       rebuild();
       forgetSavedState();
       ta.value = "";
       renderAccountSummary();
-      showReport("Reset to defaults and cleared the saved account and goal details.", true);
+      showReport("Reset to defaults and cleared the saved account and tool details.", true);
     });
 
     var file = document.getElementById("import-file");
@@ -926,13 +944,14 @@
   /* home / tool views                                                */
   /* ---------------------------------------------------------------- */
 
-  var VIEW_IDS = { home: "view-home", fishing: "view-fishing", bombs: "view-bombs", goal: "view-goal" };
+  var VIEW_IDS = { home: "view-home", fishing: "view-fishing", bombs: "view-bombs", goal: "view-goal", contracts: "view-contracts" };
 
   function routeFromHash(hash) {
     var h = String(hash || "").replace(/^#\/?/, "").toLowerCase();
     if (h === "fishing" || h === "fishing-optimizer") return "fishing";
     if (h === "bombs" || h === "bomb" || h === "bomb-comparison" || h === "transmuter") return "bombs";
     if (h === "goal" || h === "goal-eta" || h === "eta" || h === "time-to-goal") return "goal";
+    if (h === "contracts" || h === "contract" || h === "contract-planner" || h === "contract-points" || h === "cp") return "contracts";
     return "home";
   }
 
@@ -964,7 +983,9 @@
           ? "Bomb of Plenty vs Transmuter - Obelisk Miner Tools"
           : view === "goal"
             ? "Goal ETA - Time to an Ore or Bar Target"
-            : "Obelisk Miner Tools";
+            : view === "contracts"
+              ? "Contract Point Planner - Obelisk Miner Tools"
+              : "Obelisk Miner Tools";
     }
   }
 
@@ -1005,6 +1026,7 @@
     renderAccountSummary();
     if (window.BombTool) window.BombTool.init();
     if (window.GoalTool) window.GoalTool.init();
+    if (window.ContractTool) window.ContractTool.init();
 
     var note = document.getElementById("save-note");
     if (note) {

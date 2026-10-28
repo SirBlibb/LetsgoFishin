@@ -18,6 +18,7 @@
       <a href="#/fishing" data-nav="fishing">Fishing optimizer</a>
       <a href="#/bombs" data-nav="bombs">Bomb comparison</a>
       <a href="#/goal" data-nav="goal">Goal ETA</a>
+      <a href="#/contracts" data-nav="contracts">Contract planner</a>
     </nav>
   </div>
 </header>
@@ -96,6 +97,21 @@
           <div class="tool-card-footer">
             <span id="goal-account-note" class="hint"></span>
             <a class="button-link" href="#/goal">Open tool</a>
+          </div>
+        </article>
+
+        <article class="tool-card">
+          <div class="tool-card-head">
+            <div>
+              <h3>Contract Point Planner</h3>
+              <p class="tool-kicker">Best next contract buys</p>
+            </div>
+            <span id="contracts-badge" class="badge">Manual entry</span>
+          </div>
+          <p>Ranks all 34 contract upgrades for your goal mix and turns a CP budget into an ordered spend plan.</p>
+          <div class="tool-card-footer">
+            <span id="contracts-account-note" class="hint"></span>
+            <a class="button-link" href="#/contracts">Open tool</a>
           </div>
         </article>
       </div>
@@ -401,12 +417,140 @@
       </details>
     </section>
   </div>
+
+  <!-- =========================== CONTRACTS ========================= -->
+  <div id="view-contracts" class="view" hidden>
+    <section class="panel tool-header-panel">
+      <a class="back-link" href="#/home">&larr; All tools</a>
+      <div class="tool-title-row">
+        <div>
+          <h2>Contract Point Planner <span class="title-sub">Best next contract buys</span></h2>
+          <p class="lead">Rank every contract upgrade for your goal mix, then turn a Contract Point budget into an ordered spend plan.</p>
+        </div>
+      </div>
+      <div class="tool-account-bar">
+        <span id="contracts-account-status" class="hint"></span>
+        <a class="ghost-link" href="#/home">Change account data</a>
+      </div>
+    </section>
+
+    <section class="panel">
+      <h2>1. Budget and goal mix</h2>
+      <div class="goal-mode" role="group" aria-label="Starting point">
+        <label class="goal-mode-option">
+          <input type="radio" id="contracts-mode-current" name="contracts-mode" value="current" checked>
+          <span>Current levels + spare CP</span>
+        </label>
+        <label class="goal-mode-option">
+          <input type="radio" id="contracts-mode-respec" name="contracts-mode" value="respec">
+          <span>Full respec</span>
+        </label>
+      </div>
+      <p class="hint" id="contracts-mode-note">Current levels: the planner spends only your spare CP on top of the levels below.</p>
+
+      <div class="goal-controls contracts-budget-controls">
+        <label class="field">
+          <span class="field-label">Spare CP</span>
+          <input id="contracts-spare" type="number" min="0" step="1" value="0">
+        </label>
+        <label class="field">
+          <span class="field-label">Contracts completed</span>
+          <input id="contracts-completed" type="number" min="0" step="1" value="0">
+        </label>
+      </div>
+      <p class="hint" id="contracts-budget-note"></p>
+      <p class="hint">Contracts completed is not in ExportStats. The two "+1% per Contract" damage upgrades need it; leave it at 0 if you do not use them.</p>
+
+      <h3>Goal weights</h3>
+      <div class="contracts-weights" id="contracts-weights">
+        <div class="contracts-weight-row">
+          <label class="contracts-weight-label" for="contracts-weight-ore">Ore</label>
+          <input type="range" id="contracts-weight-ore" min="0" max="100" step="1" value="100">
+          <span class="contracts-weight-value" id="contracts-weight-ore-value">100%</span>
+        </div>
+        <div class="contracts-weight-row">
+          <label class="contracts-weight-label" for="contracts-weight-veins">Veins</label>
+          <input type="range" id="contracts-weight-veins" min="0" max="100" step="1" value="0">
+          <span class="contracts-weight-value" id="contracts-weight-veins-value">0%</span>
+        </div>
+        <div class="contracts-weight-row">
+          <label class="contracts-weight-label" for="contracts-weight-stars">Stars</label>
+          <input type="range" id="contracts-weight-stars" min="0" max="100" step="1" value="0">
+          <span class="contracts-weight-value" id="contracts-weight-stars-value">0%</span>
+        </div>
+        <div class="contracts-weight-row">
+          <label class="contracts-weight-label" for="contracts-weight-bars">Bars / crafting</label>
+          <input type="range" id="contracts-weight-bars" min="0" max="100" step="1" value="0">
+          <span class="contracts-weight-value" id="contracts-weight-bars-value">0%</span>
+        </div>
+        <div class="contracts-weight-row">
+          <label class="contracts-weight-label" for="contracts-weight-damage">Damage</label>
+          <input type="range" id="contracts-weight-damage" min="0" max="100" step="1" value="0">
+          <span class="contracts-weight-value" id="contracts-weight-damage-value">0%</span>
+        </div>
+      </div>
+      <p class="hint">The sliders are normalised to 100%, so the labels show each goal's real share. Set every slider to 0 to disable buying.</p>
+
+      <div class="contracts-presets" role="group" aria-label="Goal presets">
+        <button id="contracts-preset-ore" class="ghost" type="button">100% Ore</button>
+        <button id="contracts-preset-veins" class="ghost" type="button">100% Veins</button>
+        <button id="contracts-preset-stars" class="ghost" type="button">100% Stars</button>
+        <button id="contracts-preset-mix" class="ghost" type="button">50/50 Ore + Veins</button>
+      </div>
+    </section>
+
+    <section class="panel acc-panel">
+      <details class="acc" id="contracts-levels-details">
+        <summary>
+          <span class="acc-title">2. Contract levels</span>
+          <span class="acc-sub">All 34 upgrades, pre-filled when an account is loaded</span>
+          <span class="acc-icon" aria-hidden="true"></span>
+        </summary>
+        <div class="acc-body">
+          <div id="contracts-levels"></div>
+        </div>
+      </details>
+    </section>
+
+    <section class="panel results-panel">
+      <h2>3. Spend plan</h2>
+      <div id="contracts-plan" aria-live="polite"></div>
+    </section>
+
+    <section class="panel results-panel">
+      <h2>4. Result</h2>
+      <div id="contracts-result"></div>
+    </section>
+
+    <section class="panel results-panel">
+      <h2>5. Next-level ranking</h2>
+      <div id="contracts-ranking"></div>
+    </section>
+
+    <section class="panel">
+      <details>
+        <summary>How this planner works</summary>
+        <p>Every contract upgrade is mapped to the goals it helps. The goal value is the product of its upgrades' factors, and a buy is scored by the weighted log gain it adds per Contract Point spent.</p>
+        <ul>
+          <li><strong>Additive multi:</strong> <code>f = 1 + X &times; level</code>. Contract bonuses are treated as their own factor, not added into the export's huge stat totals.</li>
+          <li><strong>Chance:</strong> <code>f = 1 + min(1, c<sub>0</sub> + X &times; level) &times; (m &minus; 1)</code>, where <code>c<sub>0</sub> = export chance &minus; X &times; owned levels</code>. A chance at 100% gains nothing and reads "Capped".</li>
+          <li><strong>Craft:</strong> the triple and 10x craft chances are changed one at a time through the bomb tool's craft multiplier.</li>
+          <li><strong>Bar cost:</strong> <code>f = 1 / (1 &minus; 0.05 &times; level)</code>.</li>
+          <li><strong>Per contract:</strong> <code>f = 1 + 0.01 &times; level &times; contracts completed</code>.</li>
+          <li><strong>Score:</strong> <code>&sum; weight &times; ln(G(L+1) / G(L)) / cost</code>. The plan spends greedily on the best affordable score until no positive buy fits.</li>
+          <li><strong>Respec:</strong> budget = spare CP + the cost of every owned level. Owned levels are refunded at the current cost-reduction rate.</li>
+        </ul>
+        <p class="hint">Costs use the wiki's CostTable values through 14 extra cap levels. The cost reduction is applied as <code>cost &times; (1 &minus; contract_upgrade_cost_reduction)</code>, which is an assumption worth checking against one in-game price. Portal and damage factors multiply the whole goal, which overstates them when only part of your income uses portals or when pickaxe/bomb use is not 50/50. The two damage branches are averaged 50/50. Greedy spend is not guaranteed to be the exact optimum.</p>
+      </details>
+    </section>
+  </div>
 </main>
 
 <footer>
   <p>Fishing model ported from the community Google Sheet <em>Let's Go Fishing - V2.0.6</em>.
-    Bomb comparison and Goal ETA use community crafting formulas and wiki bar costs. Not affiliated
-    with the game. Verify before spending gems.</p>
+    Bomb comparison and Goal ETA use community crafting formulas and wiki bar costs; the contract
+    planner uses the wiki's contract cost tables. Not affiliated with the game. Verify before
+    spending gems or Contract Points.</p>
 </footer>
 
 <script src="model.js"></script>
@@ -418,6 +562,8 @@
 <script src="goaldata.js"></script>
 <script src="bombs.js"></script>
 <script src="goals.js"></script>
+<script src="contractdata.js"></script>
+<script src="contracts.js"></script>
 <script src="sample.js"></script>
 <script src="app.js"></script>
 </body>

@@ -81,6 +81,26 @@ function nodeText(node) {
 
 function goalText(id) { return nodeText(byId[id]); }
 
+function contractLevelRowsOf() {
+  var root = byId["contracts-levels"];
+  var table = root.children[0].children[0]; // .table-scroll > table
+  return table.children[1].children;
+}
+
+function contractRankingRowsOf() {
+  var root = byId["contracts-ranking"];
+  var table = root.children[0].children[0]; // .table-scroll > table
+  return table.children[1].children;
+}
+
+function findContractRankRow(rows, name) {
+  var hit = null;
+  rows.forEach(function (tr) {
+    if (tr.children[1].textContent.slice(3) === name) hit = tr;
+  });
+  return hit;
+}
+
 function dateInputValue(d) {
   function pad(n) { return String(n).padStart(2, "0"); }
   return d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate()) +
@@ -99,6 +119,7 @@ global.localStorage = (function () {
 })();
 global.document = {
   readyState: "complete",
+  title: "",
   createElement: makeNode,
   getElementById: function (id) { return byId[id] || (byId[id] = makeNode("div")); },
   addEventListener: function () {},
@@ -116,6 +137,8 @@ require("../bombdata.js");
 require("../goaldata.js");
 require("../bombs.js");
 require("../goals.js");
+require("../contractdata.js");
+require("../contracts.js");
 require("../app.js");
 
 var FM = global.FishModel;
@@ -176,6 +199,87 @@ check("goal stats show 9 crafting fields", byId["goal-stats"].children.length ==
 check("goal stats include bar output multiplier", !!byId["goal-stat-barOutputMulti"]);
 check("goal stats show defaults", byId["goal-stats-source"].textContent.indexOf("Defaults") >= 0);
 check("goal asks for a rate", byId["goal-eta-detail"].textContent.indexOf("Enter your ore per hour") >= 0);
+
+check("contracts view hidden by default", byId["view-contracts"].hidden === true);
+check("contract badge is manual entry", byId["contracts-badge"].textContent === "Manual entry");
+check("contract planner starts in current mode", global.ContractTool.getState().mode === "current");
+check("contract planner starts with no spare CP", global.ContractTool.getState().spareCp === 0);
+check("contract planner starts 100% ore",
+  global.ContractTool.getState().weights.ore === 100 &&
+  global.ContractTool.getState().weights.veins === 0);
+check("contract planner starts from defaults", global.ContractTool.getState().source === "defaults");
+check("contract planner starts at zero levels",
+  global.ContractTool.getState().levels.every(function (v) { return v === 0; }));
+check("contract level table has 34 rows", contractLevelRowsOf().length === 34);
+check("contract level inputs exist", !!byId["contract-level-0"] && !!byId["contract-level-33"]);
+check("contract ranking has 34 rows", contractRankingRowsOf().length === 34);
+check("contract ranking starts with the best ore upgrade",
+  contractRankingRowsOf()[0].children[1].textContent.slice(3) === "Golden Floor Multiplier");
+check("contract ranking greys out no-effect upgrades",
+  findContractRankRow(contractRankingRowsOf(), "Triple Craft Chance").className.indexOf("blocked") >= 0);
+check("contract ranking explains a no-effect upgrade",
+  findContractRankRow(contractRankingRowsOf(), "Triple Craft Chance").children[7].textContent ===
+  "No effect on selected goals");
+check("contract plan starts empty", global.ContractTool.getState().buys.length === 0);
+
+/* ---- contract planner interactions -------------------------------- */
+var contractSpare = byId["contracts-spare"];
+contractSpare.value = "1000";
+fire(contractSpare, "input");
+check("contract spare CP updates the state", global.ContractTool.getState().spareCp === 1000);
+check("contract budget follows the spare CP", global.ContractTool.getState().budget === 1000);
+check("contract plan buys with a budget", global.ContractTool.getState().buys.length > 0);
+check("contract plan stays inside the budget",
+  global.ContractTool.getState().spent <= global.ContractTool.getState().budget + 1e-9);
+
+fire(byId["contracts-preset-veins"], "click");
+check("contract vein preset switches the weights",
+  global.ContractTool.getState().weights.veins === 100 &&
+  global.ContractTool.getState().weights.ore === 0);
+check("contract vein preset updates the label", byId["contracts-weight-veins-value"].textContent === "100%");
+check("contract vein ranking starts with the vein upgrade",
+  contractRankingRowsOf()[0].children[1].textContent.slice(3) === "Vein Income Multiplier");
+
+fire(byId["contracts-preset-mix"], "click");
+check("contract mix preset splits ore and veins",
+  global.ContractTool.getState().weights.ore === 50 &&
+  global.ContractTool.getState().weights.veins === 50);
+check("contract mix preset updates both labels",
+  byId["contracts-weight-ore-value"].textContent === "50%" &&
+  byId["contracts-weight-veins-value"].textContent === "50%");
+
+fire(byId["contracts-preset-ore"], "click");
+var contractLevel14 = byId["contract-level-14"];
+contractLevel14.value = "3";
+fire(contractLevel14, "input");
+check("contract level input updates the state", global.ContractTool.getState().levels[14] === 3);
+check("contract level input updates the ranking",
+  findContractRankRow(contractRankingRowsOf(), "Golden Floor Multiplier").children[2].textContent === "3");
+
+var contractRespec = byId["contracts-mode-respec"];
+contractRespec.checked = true;
+fire(contractRespec, "change");
+check("contract respec mode updates the state", global.ContractTool.getState().mode === "respec");
+check("contract respec plan refunds the owned levels",
+  global.ContractTool.getState().plan.startLevels.every(function (v) { return v === 0; }));
+check("contract respec budget exceeds the spare CP",
+  global.ContractTool.getState().budget > global.ContractTool.getState().spareCp);
+check("contract respec note explains the refund",
+  byId["contracts-budget-note"].textContent.indexOf("Respec budget") >= 0 &&
+  byId["contracts-budget-note"].textContent.indexOf("refunded") >= 0);
+check("contract respec plan stays inside its budget",
+  global.ContractTool.getState().spent <= global.ContractTool.getState().budget + 1e-9);
+
+var contractCurrent = byId["contracts-mode-current"];
+contractCurrent.checked = true;
+fire(contractCurrent, "change");
+contractLevel14.value = "0";
+fire(contractLevel14, "input");
+contractSpare.value = "0";
+fire(contractSpare, "input");
+fire(byId["contracts-preset-ore"], "click");
+check("contract planner returns to current mode", global.ContractTool.getState().mode === "current");
+check("contract planner clears the test level", global.ContractTool.getState().levels[14] === 0);
 
 /* ---- goal ore interactions --------------------------------------- */
 var goalRate = byId["goal-rate"];
@@ -278,6 +382,66 @@ check("goal stats loaded from account", byId["goal-stats-source"].textContent.in
 check("goal bar output loaded from account", byId["goal-stat-barOutputMulti"].value.indexOf("21.568") === 0);
 check("goal stats warning cleared", byId["goal-stats-warning"].textContent === "");
 check("goal account status names the account", byId["goal-account-status"].textContent.indexOf("Using your saved account") >= 0);
+
+check("contract badge shows the account", byId["contracts-badge"].textContent === "Account loaded");
+check("contract planner loads the account", global.ContractTool.getState().source === "account" &&
+  global.ContractTool.getState().account === "v2.2.20");
+check("contract planner loads the account levels",
+  global.ContractTool.getState().levels[0] === 15 &&
+  global.ContractTool.getState().levels[1] === 19 &&
+  global.ContractTool.getState().levels[2] === 7);
+check("contract level table shows the account levels",
+  byId["contract-level-0"].value === "15" && byId["contract-level-33"].value === "0");
+check("contract level table shows the increased caps",
+  contractLevelRowsOf()[0].children[4].textContent === "15" &&
+  contractLevelRowsOf()[1].children[4].textContent === "19");
+check("contract account status shows the gates",
+  byId["contracts-account-status"].textContent.indexOf("OB 71") >= 0 &&
+  byId["contracts-account-status"].textContent.indexOf("cap +14") >= 0 &&
+  byId["contracts-account-status"].textContent.indexOf("cost -12.6%") >= 0);
+
+var sampleLocked = global.ContractTool.getState().ranking.filter(function (r) { return r.index === 33; })[0];
+check("contract sample locks All Portal Multi", sampleLocked.locked === true && sampleLocked.obMin === 73);
+check("contract ranking marks the OB-locked upgrade",
+  findContractRankRow(contractRankingRowsOf(), "All Portal Multi").children[7].textContent === "Locked (OB 73)");
+check("contract level table greys out the OB-locked upgrade",
+  contractLevelRowsOf()[33].className.indexOf("blocked") >= 0);
+
+var sampleContractCtx = global.ContractData.fromExport(window.SAMPLE_EXPORT.stats);
+var sampleRefund = global.ContractData.refundFor(sampleContractCtx.levels, sampleContractCtx);
+var sampleRespec = byId["contracts-mode-respec"];
+sampleRespec.checked = true;
+fire(sampleRespec, "change");
+check("contract respec refunds the account levels",
+  Math.abs(global.ContractTool.getState().budget - sampleRefund) < 1e-6);
+check("contract respec plans the sample from zero",
+  global.ContractTool.getState().plan.startLevels.every(function (v) { return v === 0; }));
+check("contract respec spends the sample refund",
+  global.ContractTool.getState().spent > 0 &&
+  global.ContractTool.getState().spent <= global.ContractTool.getState().budget + 1e-9);
+var sampleCurrent = byId["contracts-mode-current"];
+sampleCurrent.checked = true;
+fire(sampleCurrent, "change");
+
+/* hand-edited levels survive a reload; a fresh import replaces them */
+var editedLevel = sampleContractCtx.levels[14] === 5 ? 4 : 5;
+byId["contract-level-14"].value = String(editedLevel);
+fire(byId["contract-level-14"], "input");
+check("contract level edit marks the account levels as edited",
+  global.ContractTool.getState().source === "account-edited");
+delete require.cache[require.resolve("../contracts.js")];
+require("../contracts.js");
+global.ContractTool.init();
+check("contract reload keeps the edited source", global.ContractTool.getState().source === "account-edited");
+check("contract reload keeps the edited level", global.ContractTool.getState().levels[14] === editedLevel);
+check("contract reload still applies the account",
+  global.ContractTool.getState().account === "v2.2.20" &&
+  byId["contracts-account-status"].textContent.indexOf("edited by hand") >= 0 &&
+  byId["contracts-account-status"].textContent.indexOf("OB 71") >= 0);
+global.ContractTool.refreshAccount();
+check("contract import replaces the edited levels",
+  global.ContractTool.getState().source === "account" &&
+  global.ContractTool.getState().levels[14] === sampleContractCtx.levels[14]);
 
 var imported = ES.apply(ES.parseExport(window.SAMPLE_EXPORT).stats, FM.defaultInputs()).inputs;
 var expect = FM.computeModel(imported).rows.filter(function (r) { return r.rankable; });
@@ -519,6 +683,36 @@ check("goal reset restores the target", global.GoalTool.getState().currentOre ==
 check("goal reset clears the deadline", byId["goal-deadline"].value === "");
 check("goal reset restores the default stats", byId["goal-stats-source"].textContent.indexOf("Defaults") >= 0);
 check("goal reset asks for a rate again", byId["goal-eta-detail"].textContent.indexOf("Enter your ore per hour") >= 0);
+check("contract reset returns to manual entry", byId["contracts-badge"].textContent === "Manual entry");
+check("contract reset restores the default source", global.ContractTool.getState().source === "defaults");
+check("contract reset restores current mode", global.ContractTool.getState().mode === "current");
+check("contract reset clears the spare CP", global.ContractTool.getState().spareCp === 0);
+check("contract reset clears the completed contracts", global.ContractTool.getState().contractsCompleted === 0);
+check("contract reset clears every level",
+  global.ContractTool.getState().levels.every(function (v) { return v === 0; }));
+check("contract reset restores the ore weight",
+  global.ContractTool.getState().weights.ore === 100 &&
+  global.ContractTool.getState().weights.veins === 0);
+check("contract reset leaves an empty plan",
+  global.ContractTool.getState().buys.length === 0 &&
+  global.ContractTool.getState().budget === 0);
+check("contract reset restores the ranking",
+  contractRankingRowsOf().length === 34 &&
+  contractRankingRowsOf()[0].children[1].textContent.slice(3) === "Golden Floor Multiplier");
+var storedContract = JSON.parse(global.localStorage.getItem("obelisk-contracts-v1"));
+check("contract reset saves default inputs", !!storedContract &&
+  storedContract.mode === "current" &&
+  storedContract.spareCp === 0 &&
+  storedContract.levels.every(function (v) { return v === 0; }));
+
+/* ---- contracts route ---------------------------------------------- */
+global.window.location = { hash: "#/contracts" };
+delete require.cache[require.resolve("../app.js")];
+require("../app.js");
+check("contract route shows the contracts view", byId["view-contracts"].hidden === false);
+check("contract route hides the home view", byId["view-home"].hidden === true);
+check("contract route sets the page title",
+  global.document.title === "Contract Point Planner - Obelisk Miner Tools");
 
 console.log("rows: " + rows.length + " | rankable: " + rankable + " | top: " + topName + " | badges: " + badges);
 console.log(fails === 0 ? "UI SMOKE OK" : fails + " FAILED");

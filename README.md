@@ -5,6 +5,7 @@ A static website with a shared **account importer** plus tools for *Idle Obelisk
 - **Let's Go Fishing** ranks every fishing gem upgrade by how much fish/time it adds **per gem you spend**.
 - **Bomb Comparison** works out whether the **Bomb of Plenty** or **Transmuter Bomb** produces more bars at a chosen bar level, or across a dungeon floor's Void Drone portal mix.
 - **Goal ETA** estimates how long an ore or bar target will take from a measured ore/hour rate, with progress, milestones, and the rate a deadline needs.
+- **Contract Point Planner** ranks all 34 contract upgrades for a chosen mix of ore, veins, stars, bars, and damage, then turns spare CP (or a full respec) into an ordered spend plan.
 
 The fishing optimizer is a faithful JavaScript port of the community Google Sheet **"Let's Go
 Fishing - V2.0.6"** (`Obefish` tab). You can type your stats in by hand, or import the game's
@@ -26,14 +27,17 @@ No build step, no server: open `index.html` in a browser.
 2. Paste your ExportStats JSON on the home page and press **Apply JSON**, or click **Load sample**
    to try it with a real late-game export. You can also drag a `.json` file onto the page.
 3. Open a tool from the cards (or the header): **Let's Go Fishing** (`#/fishing`),
-   **Bomb comparison** (`#/bombs`), or **Goal ETA** (`#/goal`). A refresh or bookmark reopens the
-   tool directly.
+   **Bomb comparison** (`#/bombs`), **Goal ETA** (`#/goal`), or **Contract planner**
+   (`#/contracts`). A refresh or bookmark reopens the tool directly.
 4. Anything the game did not record (a few bar levels, bundles, statues, etc.) stays at 0 and is
    shown as a manual field - fill those in inside the tool.
 5. In the fishing tool, read the **Ranking** table: it is sorted best-first. `Score/gem` is the
    ranking metric.
 6. To plan a goal, enter your current amount, the target, and your measured ore per hour. Current
    ore, current bars, and ore/hour are never in ExportStats, so the goal tool always asks for them.
+7. In the contract planner, choose **Current levels + spare CP** or **Full respec**, enter spare CP
+   and contracts completed, then set the five goal weights (or use a preset). The spend plan and
+   next-level ranking update immediately.
 
 ## Home page and shared account
 
@@ -45,12 +49,14 @@ The home page (`#/home`) is the account hub:
   fields were mapped.
 - Each tool card shows whether it will use the saved account or fall back to manual entry.
 - **Reset** clears the saved account, the fishing tool's settings, the bomb tool's current values
-  and floor/portal inputs, and the goal tool's targets and measured rate.
+  and floor/portal inputs, the goal tool's targets and measured rate, and the contract planner's
+  budget, weights, and manual levels.
 - Tools read the account through `window.AccountStore` (`account.js`), so future tools can be added
   without changing the import flow.
 
-Tool settings are still saved automatically under `lgf-optimizer-state-v1`. The bomb tool starts
-from the account every time the page opens; edits in its form apply immediately.
+Tool settings are saved automatically: the fishing tool under `lgf-optimizer-state-v1`, the goal
+tool under `obelisk-goal-v1`, and the contract planner under `obelisk-contracts-v1`. The bomb tool
+starts from the account every time the page opens; edits in its form apply immediately.
 
 ## How to get ExportStats
 
@@ -319,11 +325,108 @@ different bar counts.
   not predict offline time, downtime, or upgrades you buy along the way.
 - A deadline assumes you actually play the hours you entered before that date.
 
+## Contract Point Planner (`#/contracts`)
+
+Ranks every contract upgrade for **ore**, **veins**, **stars**, **bars/crafting**, and **damage**,
+then builds a shopping list from a Contract Point budget.
+
+- **Current levels + spare CP** starts from your saved account's `contracts_array` (or the editable
+  level table) and spends only the spare CP you enter.
+- **Full respec** refunds every owned contract level at the current cost-reduction rate, adds your
+  spare CP, then plans from zero. Respec gains are versus your current levels, so a goal can show a
+  negative gain.
+- **Goal weights** are sliders from 0 to 100. They are normalised to 100%, so a 100/100 split shows
+  50% each. Presets jump to 100% ore, 100% veins, 100% stars, or 50/50 ore + veins. All zero disables
+  buying.
+- **Contracts completed** is manual because ExportStats does not record it. It only powers the two
+  "+1% per Contract" damage upgrades; leave it at 0 if you do not use them.
+- The **level table** shows all 34 upgrades with their current level, cap, and OB requirement. It is
+  editable so you can plan for cap increases or OB levels that are not in the export.
+- The **spend plan** is greedy: each step buys the affordable level with the highest weighted score.
+- The **next-level ranking** lists all 34 upgrades best-first. Capped, OB-locked, maxed, and
+  no-effect rows are greyed out and explained.
+
+### Goal model
+
+Each goal is the product of its upgrades' multiplicative factors:
+
+| Goal | Contract upgrades that affect it |
+| --- | --- |
+| Ore | Golden Floor Multi, Base Game Speed, Rainbow Floor Multi/Chance, Golden Ore Chance, Prismatic Floor Multi, Golden Void Portal Chance, All Portal Multi |
+| Veins | Vein Income Multiplier, Golden Vein Chance, Base Game Speed, Rainbow Vein Multiplier |
+| Stars | Super Star Spawn Rate, Base Game Speed, Super Star Supernova, Star Supergiant, Super Star Supergiant, All Star Multiplier, All Radiant Multi |
+| Bars / crafting | Triple Craft Chance, 10x Craft Chance, Upgrade Bar Cost, Base Game Speed |
+| Damage | Per-contract pickaxe/bomb damage, pickaxe crits, bomb recharge, ultra/omega crits, 1.08x pickaxe & bomb damage, Base Game Speed |
+
+Ore Sell Price, EXP Gain, Prestige Point Gain, Lootfrog Triple Spawn Chance, and Rune Craft Multi do
+not map to these five goals, so they appear greyed out with "No effect on selected goals".
+
+Factors use the upgrade's level and the current account stats:
+
+- **Multi:** `f = 1 + amount x level`.
+- **Compound:** `f = 1.08 ^ level` for the "1.08x" damage upgrade.
+- **Chance:** `f = 1 + min(1, c0 + amount x level) x (multi - 1)`, where
+  `c0 = export chance - amount x owned level`. A chance already at 100% gains nothing and is
+  marked **Capped**.
+- **Craft:** the triple and 10x craft chances are changed one at a time through the bomb tool's
+  craft multiplier. The base chance is the export chance minus the contract contribution; a craft
+  chance already at 100% is marked **Capped**.
+- **Bar cost:** `f = 1 / (1 - 0.05 x level)`.
+- **Per contract:** `f = 1 + 0.01 x level x contracts completed`.
+- **Damage:** pickaxe and bomb factors are multiplied separately, then averaged 50/50.
+
+### Costs, scoring, and respec
+
+Costs come from the wiki's [*Contracts*](https://shminer.miraheze.org/wiki/Contracts) page
+(v2.2.23) and follow `Module:CostTable`: linear upgrades add a step to the previous raw cost, and
+exponential upgrades multiply the previous raw cost by the scaling. Level and scaling overrides
+switch on at their listed level. Displayed costs are rounded, but later levels keep scaling from the
+raw previous cost.
+
+- `cost = round(raw cost x (1 - contract_upgrade_cost_reduction))`. The reduction is applied
+  without integer rounding; this is an assumption worth checking against one in-game price.
+- `score = sum(weight x ln(G(level + 1) / G(level))) / cost`.
+- `plan` repeatedly buys the highest-scoring affordable level until nothing positive fits.
+- `respec budget = spare CP + sum(cost of every owned level at the current reduction)`.
+- `weighted total = exp(sum(weight x ln(goal after / goal before))) - 1`. In respec mode "before" is
+  your current levels, not zero.
+
+The data uses the current table length: each upgrade's base max plus 14 cap levels. Cost totals are
+verified against the wiki: Triple Craft 6,776, Vein Income 48,398, and Ore Sell Price 135,451.
+
+### Auto-filled stats
+
+| ExportStats key | Used as |
+| --- | --- |
+| `contracts_array` | Current contract upgrade levels |
+| `contract_cap_increase` | Extra levels added to every upgrade cap |
+| `contract_upgrade_cost_reduction` | Contract Point cost reduction |
+| `obelisk_level` | OB gates on World 2-4 upgrades |
+| `*_chance` / `*_multi` | Base chance and multiplier for chance upgrades |
+| `triple_craft_chance` / `craft_10x_chance` | Base crafting chances |
+| Crafting stats | Fed through the bomb tool's craft multiplier |
+
+The saved account supplies these automatically; every level, weight, and budget remains editable.
+Without an account the planner uses OB 0, cap +0, and 0% cost reduction.
+
+### Caveats
+
+- Contract bonuses are treated as their own multiplicative factors, not added into the export's huge
+  stat totals (for example `rainbow_floor_multi`). If the game sums them additively, the factors
+  should be `(stat + bonus) / stat` instead.
+- Portal and damage upgrades multiply the whole goal. That overstates them when only part of your
+  income uses portals, or when your pickaxe/bomb use is not 50/50.
+- Greedy spending is close to, but not guaranteed to be, the exact optimal plan.
+- The planner does not simulate future contract income, bar costs paid to complete contracts, or CP
+  gained along the way; it only plans the budget and completion count you enter.
+- Costs, caps, and OB gates are hard-coded for v2.2.23. If the game adds levels or upgrades, extend
+  `UPGRADES`, `MAX_LEVELS`, and the cost tables in `contractdata.js`.
+
 ## Files
 
 | File | Purpose |
 | --- | --- |
-| `index.html` | Home page + fishing, bomb, and goal tool shells |
+| `index.html` | Home page + fishing, bomb, goal, and contract tool shells |
 | `styles.css` | Styling |
 | `model.js` | The ported fishing model (`window.FishModel`) |
 | `data.js` | Field labels/limits (`window.UI_SPEC`) |
@@ -334,6 +437,8 @@ different bar counts.
 | `bombs.js` | Bomb comparison UI, bar and floor modes (`window.BombTool`) |
 | `goaldata.js` | Goal ETA + bar conversion maths (`window.GoalData`) |
 | `goals.js` | Goal ETA UI and measured-rate helper (`window.GoalTool`) |
+| `contractdata.js` | Contract levels, caps, costs, goals, ranking, and spend plans (`window.ContractData`) |
+| `contracts.js` | Contract Point Planner UI (`window.ContractTool`) |
 | `app.js` | View routing + fishing tool UI wiring + account import |
 | `sample.js` | A sample ExportStats export (`window.SAMPLE_EXPORT`) |
 | `test/validate.js` | Model vs. the sheet's cached default values |
@@ -341,6 +446,7 @@ different bar counts.
 | `test/validate_fish.js` | Fish data shape + fish ranking behaviour |
 | `test/validate_bombs.js` | Bomb formulas, floor/portal mixes, breakpoints, and page wiring |
 | `test/validate_goal.js` | Goal ETA formulas, bar conversion, and page wiring |
+| `test/validate_contracts.js` | Contract costs, goals, ranking, plans, respec, and page wiring |
 | `test/ui_smoke.js` | Headless UI wiring smoke test (all tools) |
 
 ## Running the tests
@@ -351,12 +457,13 @@ node test/validate_export.js
 node test/validate_fish.js
 node test/validate_bombs.js
 node test/validate_goal.js
+node test/validate_contracts.js
 node test/ui_smoke.js
 ```
 
 `validate.js` checks the ported model against the spreadsheet's cached values in the default
 (empty) state; the others exercise the import mapping, the fish cost/ranking data, the bomb
-comparison, the goal ETA maths, and the UI wiring.
+comparison, the goal ETA maths, the contract planner's costs/plans/respec, and the UI wiring.
 
 ## Disclaimer
 

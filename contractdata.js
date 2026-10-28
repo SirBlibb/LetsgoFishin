@@ -701,6 +701,70 @@
     return round6(Math.max(0, asNumber(spareCp, 0)) + refundFor(levels, ctx));
   }
 
+  /*
+   * Per-upgrade totals for the summary view. `spent` is the CP already in the
+   * owned levels (the respec refund value), and `toMax` is what remains to buy
+   * every level up to the current cap. `next` is null once the upgrade is maxed.
+   */
+  function summaryFor(levels, ctx) {
+    ctx = ctx || fromExport({});
+    var lv = normalizeLevels(levels, ctx);
+    var rows = [];
+    var totals = {
+      level: 0, cap: 0, remaining: 0,
+      spent: 0, toMax: 0, total: 0,
+      maxed: 0, locked: 0
+    };
+
+    UPGRADES.forEach(function (up) {
+      var cap = capFor(up.index, ctx.capIncrease);
+      var level = lv[up.index];
+      var spent = 0;
+      var toMax = 0;
+      var n;
+
+      for (n = 1; n <= level; n++) spent += costAt(up.index, n, ctx.costReduction);
+      for (n = level + 1; n <= cap; n++) toMax += costAt(up.index, n, ctx.costReduction);
+
+      var locked = up.obMin > 0 && asNumber(ctx.obeliskLevel, 0) < up.obMin;
+      var maxed = level >= cap;
+
+      spent = round6(spent);
+      toMax = round6(toMax);
+
+      rows.push({
+        index: up.index,
+        name: up.name,
+        world: up.world,
+        bonus: up.bonus,
+        level: level,
+        cap: cap,
+        remaining: cap - level,
+        next: maxed ? null : costAt(up.index, level + 1, ctx.costReduction),
+        spent: spent,
+        toMax: toMax,
+        total: round6(spent + toMax),
+        maxed: maxed,
+        locked: locked,
+        obMin: up.obMin
+      });
+
+      totals.level += level;
+      totals.cap += cap;
+      totals.remaining += cap - level;
+      totals.spent += spent;
+      totals.toMax += toMax;
+      if (maxed) totals.maxed++;
+      if (locked) totals.locked++;
+    });
+
+    totals.spent = round6(totals.spent);
+    totals.toMax = round6(totals.toMax);
+    totals.total = round6(totals.spent + totals.toMax);
+
+    return { rows: rows, totals: totals };
+  }
+
   // Gains are measured against compareLevels when given (respec vs current), else the start levels.
   function planSpend(levels, ctx, weights, budget, compareLevels) {
     ctx = ctx || fromExport({});
@@ -785,6 +849,7 @@
     totalCost: totalCost,
     refundFor: refundFor,
     respecBudget: respecBudget,
+    summaryFor: summaryFor,
     normalizeWeights: normalizeWeights,
     normalizeLevels: normalizeLevels,
     zeroLevels: zeroLevels

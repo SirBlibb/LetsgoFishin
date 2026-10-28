@@ -346,8 +346,11 @@ then builds a shopping list from a Contract Point budget.
 - The **level table** shows all 34 upgrades with their current level, cap, and OB requirement. It is
   editable so you can plan for cap increases or OB levels that are not in the export.
 - The **spend plan** is greedy: each step buys the affordable level with the highest weighted score.
-- The **next-level ranking** lists all 34 upgrades best-first. Capped, OB-locked, maxed, and
-  no-effect rows are greyed out and explained.
+- The **Ranking / Summary** toggle switches the upgrade view. **Ranking** lists all 34 upgrades
+  best-first; capped, OB-locked, maxed, and no-effect rows are greyed out and explained. **Summary**
+  lists every upgrade with its current level, cap, CP already spent, next price, CP still needed to
+  max, and grand totals. The summary's **Spent** column equals the respec refund, and **To max**
+  includes OB-locked upgrades at their listed prices.
 
 ### Goal model
 

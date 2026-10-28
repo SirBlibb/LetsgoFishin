@@ -523,8 +523,15 @@
     </section>
 
     <section class="panel results-panel">
-      <h2>5. Next-level ranking</h2>
+      <div class="contracts-view-head">
+        <h2 id="contracts-view-title">5. Next-level ranking</h2>
+        <div class="contracts-view-toggle" role="group" aria-label="Upgrade view">
+          <button id="contracts-view-ranking" class="contracts-view-btn active" type="button" aria-pressed="true">Ranking</button>
+          <button id="contracts-view-summary" class="contracts-view-btn ghost" type="button" aria-pressed="false">Summary</button>
+        </div>
+      </div>
       <div id="contracts-ranking"></div>
+      <div id="contracts-summary" hidden></div>
     </section>
 
     <section class="panel">

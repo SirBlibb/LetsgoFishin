@@ -158,6 +158,38 @@ check("a zero baseline matches the default",
   close(respecZeroBase.goals.veins.gain, respecNoBase.goals.veins.gain) &&
   close(respecZeroBase.weightedGain, respecNoBase.weightedGain));
 
+/* ---- summary view -------------------------------------------------- */
+
+var summary = CD.summaryFor(levels, ctx);
+var summaryLevels = levels.reduce(function (sum, v) { return sum + v; }, 0);
+var summaryCaps = CD.UPGRADES.reduce(function (sum, up) {
+  return sum + CD.capFor(up.index, ctx.capIncrease);
+}, 0);
+check("summary lists all 34 upgrades", summary.rows.length === 34);
+check("summary spent is the respec refund", close(summary.totals.spent, refund));
+check("summary totals every level", summary.totals.level === summaryLevels);
+check("summary totals every cap", summary.totals.cap === summaryCaps);
+check("summary remaining levels match level and cap",
+  summary.totals.remaining === summary.totals.cap - summary.totals.level);
+check("summary spent plus to-max is the grand total",
+  close(summary.totals.spent + summary.totals.toMax, summary.totals.total));
+check("summary flags the OB-locked upgrade",
+  summary.rows[33].locked === true && summary.rows[33].obMin === 73 && summary.totals.locked === 1);
+check("summary marks a maxed upgrade", summary.rows[0].maxed === true && summary.rows[0].next === null);
+
+var spentIndex1 = 0;
+for (var summaryLevel = 1; summaryLevel <= levels[1]; summaryLevel++) {
+  spentIndex1 += CD.costAt(1, summaryLevel, ctx.costReduction);
+}
+check("summary row spent uses the reduced costs", close(summary.rows[1].spent, spentIndex1));
+
+var zeroSummary = CD.summaryFor(zero, ctx);
+check("summary shows the next level price",
+  close(zeroSummary.rows[0].next, CD.costAt(0, 1, ctx.costReduction)));
+check("summary to-max covers every remaining level",
+  close(zeroSummary.rows[0].toMax, CD.totalCost(0, ctx.costReduction)) &&
+  zeroSummary.totals.spent === 0);
+
 /* ---- page wiring --------------------------------------------------- */
 
 var html = fs.readFileSync(path.join(__dirname, "..", "index.html"), "utf-8");
@@ -173,7 +205,9 @@ var app = fs.readFileSync(path.join(__dirname, "..", "app.js"), "utf-8");
   "contracts-weight-damage", "contracts-weight-damage-value",
   "contracts-preset-ore", "contracts-preset-veins", "contracts-preset-stars", "contracts-preset-mix",
   "contracts-levels-details", "contracts-levels",
-  "contracts-plan", "contracts-result", "contracts-ranking",
+  "contracts-plan", "contracts-result",
+  "contracts-view-title", "contracts-view-ranking", "contracts-view-summary",
+  "contracts-ranking", "contracts-summary",
   "contracts-badge", "contracts-account-note", "contracts-account-status"
 ].forEach(function (id) {
   check("index.html has #" + id, html.indexOf('id="' + id + '"') >= 0);

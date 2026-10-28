@@ -20,6 +20,7 @@
 
   var DEFAULTS = {
     mode: "current",
+    view: "ranking",
     spareCp: 0,
     contractsCompleted: 0,
     weights: { ore: 100, veins: 0, stars: 0, bars: 0, damage: 0 }
@@ -35,6 +36,7 @@
 
   var state = {
     mode: DEFAULTS.mode,
+    view: DEFAULTS.view,
     spareCp: DEFAULTS.spareCp,
     contractsCompleted: DEFAULTS.contractsCompleted,
     weights: cloneDefaults(),
@@ -47,6 +49,7 @@
   var nodes = {};
   var lastPlan = null;
   var lastRanking = null;
+  var lastSummary = null;
   var lastWeights = null;
 
   /* ---------------------------------------------------------------- */
@@ -143,6 +146,7 @@
     if (!saved || typeof saved !== "object") return;
 
     if (saved.mode === "respec" || saved.mode === "current") state.mode = saved.mode;
+    if (saved.view === "summary" || saved.view === "ranking") state.view = saved.view;
     state.spareCp = Math.max(0, asNumber(saved.spareCp, DEFAULTS.spareCp));
     state.contractsCompleted = Math.max(0,
       Math.floor(asNumber(saved.contractsCompleted, DEFAULTS.contractsCompleted)));
@@ -165,6 +169,7 @@
     try {
       store.setItem(KEY, JSON.stringify({
         mode: state.mode,
+        view: state.view,
         spareCp: state.spareCp,
         contractsCompleted: state.contractsCompleted,
         weights: state.weights,
@@ -402,6 +407,13 @@
     if (nodes.presetVeins) nodes.presetVeins.addEventListener("click", function () { setPreset({ veins: 100 }); });
     if (nodes.presetStars) nodes.presetStars.addEventListener("click", function () { setPreset({ stars: 100 }); });
     if (nodes.presetMix) nodes.presetMix.addEventListener("click", function () { setPreset({ ore: 50, veins: 50 }); });
+
+    if (nodes.viewRanking) {
+      nodes.viewRanking.addEventListener("click", function () { setUpgradeView("ranking"); });
+    }
+    if (nodes.viewSummary) {
+      nodes.viewSummary.addEventListener("click", function () { setUpgradeView("summary"); });
+    }
   }
 
   /* ---------------------------------------------------------------- */
@@ -516,6 +528,98 @@
     return "";
   }
 
+  function setUpgradeView(view) {
+    if (view !== "summary") view = "ranking";
+    if (state.view === view) return;
+    state.view = view;
+    update();
+  }
+
+  function renderUpgradeView() {
+    var summary = state.view === "summary";
+
+    if (nodes.viewTitle) {
+      nodes.viewTitle.textContent = summary ? "5. Upgrade summary" : "5. Next-level ranking";
+    }
+    if (nodes.viewRanking) {
+      nodes.viewRanking.className = "contracts-view-btn" + (summary ? " ghost" : " active");
+      nodes.viewRanking.setAttribute("aria-pressed", summary ? "false" : "true");
+    }
+    if (nodes.viewSummary) {
+      nodes.viewSummary.className = "contracts-view-btn" + (summary ? " active" : " ghost");
+      nodes.viewSummary.setAttribute("aria-pressed", summary ? "true" : "false");
+    }
+    if (nodes.ranking) nodes.ranking.hidden = summary;
+    if (nodes.summary) nodes.summary.hidden = !summary;
+  }
+
+  function summaryStateText(row) {
+    if (row.locked) return "Locked (OB " + row.obMin + ")";
+    if (row.maxed) return "Maxed";
+    return row.remaining + (row.remaining === 1 ? " level left" : " levels left");
+  }
+
+  function renderSummary(summary) {
+    if (!nodes.summary || !summary) return;
+    nodes.summary.innerHTML = "";
+
+    var totals = summary.totals;
+    var bar = el("div", "summary");
+    bar.appendChild(el("div", "stat", "Levels: " + totals.level + " / " + totals.cap));
+    bar.appendChild(el("div", "stat", "Spent: " + fmt(totals.spent) + " CP"));
+    bar.appendChild(el("div", "stat", "To max: " + fmt(totals.toMax) + " CP"));
+    bar.appendChild(el("div", "stat", "All-in: " + fmt(totals.total) + " CP"));
+    if (totals.locked) {
+      bar.appendChild(el("div", "stat", "Locked: " + totals.locked + " upgrade" + (totals.locked === 1 ? "" : "s")));
+    }
+    nodes.summary.appendChild(bar);
+
+    var table = el("table", "results-table contracts-summary-table");
+    var thead = el("thead");
+    var hr = el("tr");
+    ["World", "Upgrade", "Level", "Cap", "Spent (CP)", "Next (CP)", "To max (CP)", "State"].forEach(function (label) {
+      hr.appendChild(el("th", null, label));
+    });
+    thead.appendChild(hr);
+    table.appendChild(thead);
+
+    var tbody = el("tbody");
+    summary.rows.forEach(function (row) {
+      var tr = el("tr");
+      if (row.locked) tr.className = "blocked";
+
+      tr.appendChild(el("td", null, "W" + row.world));
+      tr.appendChild(el("td", "name", row.name));
+      tr.appendChild(el("td", "num", String(row.level)));
+      tr.appendChild(el("td", "num", String(row.cap)));
+      tr.appendChild(el("td", "num", fmt(row.spent)));
+      tr.appendChild(el("td", "num", row.next === null ? "-" : fmt(row.next)));
+      tr.appendChild(el("td", "num", fmt(row.toMax)));
+      tr.appendChild(el("td", "note", summaryStateText(row)));
+      tbody.appendChild(tr);
+    });
+
+    var totalRow = el("tr", "total-row");
+    totalRow.appendChild(el("td", null, ""));
+    totalRow.appendChild(el("td", "name", "Total"));
+    totalRow.appendChild(el("td", "num", String(totals.level)));
+    totalRow.appendChild(el("td", "num", String(totals.cap)));
+    totalRow.appendChild(el("td", "num", fmt(totals.spent)));
+    totalRow.appendChild(el("td", "num", "-"));
+    totalRow.appendChild(el("td", "num", fmt(totals.toMax)));
+    totalRow.appendChild(el("td", "note",
+      totals.remaining === 0 ? "All maxed" :
+      totals.remaining + (totals.remaining === 1 ? " level left" : " levels left")));
+    tbody.appendChild(totalRow);
+
+    table.appendChild(tbody);
+    nodes.summary.appendChild(scrollWrap(table));
+    nodes.summary.appendChild(el("p", "hint",
+      "Totals use your current levels and the current cost reduction. \"Spent\" is what a respec " +
+      "would refund; \"To max\" is the CP still needed to reach every cap. OB-locked upgrades are " +
+      "included at their listed prices."));
+  }
+
   function renderRanking(ranking) {
     if (!nodes.ranking) return;
     nodes.ranking.innerHTML = "";
@@ -572,9 +676,11 @@
     var plan = CD.planSpend(startLevels, ctx, state.weights, budget,
       state.mode === "respec" ? currentLevels : null);
     var ranking = CD.rankNext(startLevels, ctx, state.weights);
+    var summary = CD.summaryFor(currentLevels, ctx);
 
     lastPlan = plan;
     lastRanking = ranking;
+    lastSummary = summary;
     lastWeights = CD.normalizeWeights(state.weights);
 
     renderMode();
@@ -582,6 +688,8 @@
     renderPlan(plan, refund);
     renderResult(plan);
     renderRanking(ranking);
+    renderSummary(summary);
+    renderUpgradeView();
     updateWeightLabels();
     updateAccountStatus();
     saveInputs();
@@ -601,7 +709,11 @@
     nodes.levels = document.getElementById("contracts-levels");
     nodes.plan = document.getElementById("contracts-plan");
     nodes.result = document.getElementById("contracts-result");
+    nodes.viewTitle = document.getElementById("contracts-view-title");
+    nodes.viewRanking = document.getElementById("contracts-view-ranking");
+    nodes.viewSummary = document.getElementById("contracts-view-summary");
     nodes.ranking = document.getElementById("contracts-ranking");
+    nodes.summary = document.getElementById("contracts-summary");
     nodes.accountStatus = document.getElementById("contracts-account-status");
 
     nodes.weightSliders = {};
@@ -646,6 +758,7 @@
     clearSavedInputs();
 
     state.mode = DEFAULTS.mode;
+    state.view = DEFAULTS.view;
     state.spareCp = DEFAULTS.spareCp;
     state.contractsCompleted = DEFAULTS.contractsCompleted;
     state.weights = cloneDefaults();
@@ -667,6 +780,7 @@
     getState: function () {
       return {
         mode: state.mode,
+        view: state.view,
         spareCp: state.spareCp,
         contractsCompleted: state.contractsCompleted,
         weights: {
@@ -684,7 +798,8 @@
         left: lastPlan ? lastPlan.left : 0,
         buys: lastPlan ? lastPlan.buys.slice() : [],
         plan: lastPlan,
-        ranking: lastRanking
+        ranking: lastRanking,
+        summary: lastSummary
       };
     }
   };

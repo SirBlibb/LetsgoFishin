@@ -93,6 +93,12 @@ function contractRankingRowsOf() {
   return table.children[1].children;
 }
 
+function contractSummaryRowsOf() {
+  var root = byId["contracts-summary"];
+  var table = root.children[1].children[0]; // stats summary, then .table-scroll > table
+  return table.children[1].children;
+}
+
 function findContractRankRow(rows, name) {
   var hit = null;
   rows.forEach(function (tr) {
@@ -221,6 +227,32 @@ check("contract ranking explains a no-effect upgrade",
   findContractRankRow(contractRankingRowsOf(), "Triple Craft Chance").children[7].textContent ===
   "No effect on selected goals");
 check("contract plan starts empty", global.ContractTool.getState().buys.length === 0);
+check("contract ranking view is the default", global.ContractTool.getState().view === "ranking" &&
+  byId["contracts-view-title"].textContent === "5. Next-level ranking");
+check("contract ranking is visible and summary hidden",
+  byId["contracts-ranking"].hidden === false && byId["contracts-summary"].hidden === true);
+
+fire(byId["contracts-view-summary"], "click");
+check("contract summary toggle switches the view", global.ContractTool.getState().view === "summary");
+check("contract summary view is visible and ranking hidden",
+  byId["contracts-summary"].hidden === false && byId["contracts-ranking"].hidden === true);
+check("contract summary toggle updates the heading",
+  byId["contracts-view-title"].textContent === "5. Upgrade summary");
+check("contract summary lists every upgrade and a total", contractSummaryRowsOf().length === 35);
+check("contract summary shows the level caps",
+  contractSummaryRowsOf()[0].children[3].textContent === "1" &&
+  contractSummaryRowsOf()[1].children[3].textContent === "5");
+check("contract summary has grand totals",
+  nodeText(byId["contracts-summary"]).indexOf("To max:") >= 0 &&
+  nodeText(byId["contracts-summary"]).indexOf("All-in:") >= 0 &&
+  nodeText(byId["contracts-summary"]).indexOf("Levels:") >= 0);
+check("contract summary total row is labelled", contractSummaryRowsOf()[34].children[1].textContent === "Total");
+check("contract summary view is saved",
+  JSON.parse(global.localStorage.getItem("obelisk-contracts-v1")).view === "summary");
+
+fire(byId["contracts-view-ranking"], "click");
+check("contract ranking toggle switches back", global.ContractTool.getState().view === "ranking" &&
+  byId["contracts-ranking"].hidden === false && byId["contracts-summary"].hidden === true);
 
 /* ---- contract planner interactions -------------------------------- */
 var contractSpare = byId["contracts-spare"];
@@ -400,6 +432,13 @@ check("contract account status shows the gates",
   byId["contracts-account-status"].textContent.indexOf("cap +14") >= 0 &&
   byId["contracts-account-status"].textContent.indexOf("cost -12.6%") >= 0);
 
+fire(byId["contracts-view-summary"], "click");
+check("contract summary uses the account levels",
+  contractSummaryRowsOf()[0].children[2].textContent === "15" &&
+  contractSummaryRowsOf()[0].children[3].textContent === "15" &&
+  contractSummaryRowsOf()[0].children[7].textContent === "Maxed");
+fire(byId["contracts-view-ranking"], "click");
+
 var sampleLocked = global.ContractTool.getState().ranking.filter(function (r) { return r.index === 33; })[0];
 check("contract sample locks All Portal Multi", sampleLocked.locked === true && sampleLocked.obMin === 73);
 check("contract ranking marks the OB-locked upgrade",
@@ -409,6 +448,8 @@ check("contract level table greys out the OB-locked upgrade",
 
 var sampleContractCtx = global.ContractData.fromExport(window.SAMPLE_EXPORT.stats);
 var sampleRefund = global.ContractData.refundFor(sampleContractCtx.levels, sampleContractCtx);
+check("contract summary spent matches the respec refund",
+  Math.abs(global.ContractTool.getState().summary.totals.spent - sampleRefund) < 1e-6);
 var sampleRespec = byId["contracts-mode-respec"];
 sampleRespec.checked = true;
 fire(sampleRespec, "change");
@@ -736,9 +777,12 @@ check("contract reset leaves an empty plan",
 check("contract reset restores the ranking",
   contractRankingRowsOf().length === 34 &&
   contractRankingRowsOf()[0].children[1].textContent.slice(3) === "Golden Floor Multiplier");
+check("contract reset restores the ranking view", global.ContractTool.getState().view === "ranking" &&
+  byId["contracts-ranking"].hidden === false && byId["contracts-summary"].hidden === true);
 var storedContract = JSON.parse(global.localStorage.getItem("obelisk-contracts-v1"));
 check("contract reset saves default inputs", !!storedContract &&
   storedContract.mode === "current" &&
+  storedContract.view === "ranking" &&
   storedContract.spareCp === 0 &&
   storedContract.levels.every(function (v) { return v === 0; }));
 

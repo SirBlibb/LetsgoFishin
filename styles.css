@@ -394,6 +394,7 @@ td.num { white-space: nowrap; }
   padding: 0;
   accent-color: var(--accent);
 }
+#bomb-mode-note { margin: 0 0 12px; }
 .bomb-controls {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
@@ -485,6 +486,10 @@ td.num { white-space: nowrap; }
   font-variant-numeric: tabular-nums;
 }
 .bomb-card.winner .bomb-figure { color: #7ee787; }
+/* BoP is blue everywhere else on the page, so its winning card is too. */
+#bomb-bop-card.winner { border-color: rgba(47,129,247,.55); box-shadow: inset 0 0 0 1px rgba(47,129,247,.14); }
+#bomb-bop-card.winner .bomb-figure { color: #79c0ff; }
+#bomb-bop-card .bomb-chip { border-color: rgba(47,129,247,.5); background: rgba(47,129,247,.12); color: #79c0ff; }
 .bomb-figure-note { color: var(--muted); font-size: 12px; }
 .bomb-breakdown {
   display: grid;
@@ -507,6 +512,39 @@ td.num { white-space: nowrap; }
 .bomb-breakpoint p { margin: 0 0 6px; }
 .bomb-breakpoint p:last-child { margin-bottom: 0; }
 .bomb-breakpoint-main { font-weight: 600; }
+
+.bomb-strip-wrap { margin: 10px 0; }
+.bomb-strip { display: flex; flex-wrap: wrap; gap: 2px; }
+.bomb-cell {
+  width: 12px;
+  height: 22px;
+  min-height: 0; /* an overview, not the main control; the select keeps the 40px touch target */
+  padding: 0;
+  border: 0;
+  border-radius: 2px;
+  background: var(--muted);
+  cursor: pointer;
+}
+.bomb-cell.bop { background: rgba(47,129,247,.75); }
+.bomb-cell.trans { background: rgba(63,185,80,.75); }
+.bomb-cell.group-start { margin-left: 6px; }
+.bomb-cell:hover { filter: brightness(1.35); }
+.bomb-cell.selected { outline: 2px solid var(--text); outline-offset: 1px; }
+.bomb-cell:focus-visible { outline: 2px solid var(--warn); outline-offset: 1px; }
+.bomb-strip-legend {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 6px;
+  margin: 8px 0 0;
+  color: var(--muted);
+  font-size: 12px;
+}
+.bomb-key { width: 10px; height: 10px; border-radius: 2px; }
+.bomb-key.bop { background: rgba(47,129,247,.75); }
+.bomb-key.trans, .bomb-key.tie { background: rgba(63,185,80,.75); margin-left: 6px; }
+.bomb-key.tie { background: var(--muted); }
+.bomb-strip-tip { margin-left: 6px; }
 
 .bomb-stats-actions { flex-wrap: wrap; gap: 8px; }
 .bomb-warning { margin: 10px 0 0; color: var(--warn); font-size: 12px; }
@@ -540,7 +578,8 @@ td.num { white-space: nowrap; }
   font-weight: 500;
 }
 .bomb-table tr.selected { background: rgba(47,129,247,.12); }
-.bomb-table tr.selected td { color: #79c0ff; }
+.bomb-table tr.selected td:not(.bomb-winner) { color: #79c0ff; }
+.bomb-table tr.selected td:first-child { box-shadow: inset 3px 0 0 var(--accent); }
 .bomb-winner { font-weight: 700; white-space: nowrap; }
 .bomb-winner.bop { color: #79c0ff; }
 .bomb-winner.trans { color: #7ee787; }

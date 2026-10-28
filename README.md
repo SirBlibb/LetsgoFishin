@@ -55,8 +55,9 @@ The home page (`#/home`) is the account hub:
   without changing the import flow.
 
 Tool settings are saved automatically: the fishing tool under `lgf-optimizer-state-v1`, the goal
-tool under `obelisk-goal-v1`, and the contract planner under `obelisk-contracts-v1`. The bomb tool
-starts from the account every time the page opens; edits in its form apply immediately.
+tool under `obelisk-goal-v1`, the contract planner under `obelisk-contracts-v1`, and the bomb tool
+under `obelisk-bombs-v1`. The bomb tool keeps its mode, level, floor, ore and portal inputs, and keeps
+stats only when you edited them by hand; untouched stats are re-read from the account each time.
 
 ## How to get ExportStats
 
@@ -159,7 +160,9 @@ The selected level shows:
 - expected bars from Bomb of Plenty (BoP ore, then crafting),
 - expected bars from Transmuter (direct bars plus crafting the leftover ore),
 - which one wins and by what margin,
-- the breakpoint and the last/first known bar levels on each side.
+- the breakpoint and the last/first known bar levels on each side,
+- a strip with one square per bar level, coloured by the winner. Clicking a square selects that
+  level. Floor mode shows the same strip with one square per floor.
 
 The **All bar levels** table repeats the comparison for every known bar, split into World 1-4
 sections. The selected level is highlighted. The **Breakpoint** is an *effective* ore cost per bar:

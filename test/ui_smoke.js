@@ -615,6 +615,43 @@ check("bar mode restores the table heading",
 check("bar mode restores the bar table",
   byId["bomb-table"].children[0].children[0].children.length === 6);
 
+/* winner strip: one cell per level, a click selects it */
+check("bomb strip has a cell per bar level", byId["bomb-strip"].children.length === 86);
+check("bomb strip colours Mithril BoP and Adamant Transmuter",
+  byId["bomb-cell-3"].className.indexOf("bop") >= 0 &&
+  byId["bomb-cell-4"].className.indexOf("trans") >= 0);
+fire(byId["bomb-cell-10"], "click");
+check("bomb strip click selects the level",
+  global.BombTool.getState().level === 10 && byId["bomb-level"].value === "10");
+check("bomb strip marks the selected cell", byId["bomb-cell-10"].className.indexOf("selected") >= 0);
+check("bomb strip is one tab stop", byId["bomb-cell-10"].tabIndex === 0 && byId["bomb-cell-11"].tabIndex === -1);
+byId["bomb-strip"]._l.keydown[0]({ key: "ArrowRight", preventDefault: function () {} });
+check("bomb strip arrow key moves the selection", global.BombTool.getState().level === 11);
+byId["bomb-strip"]._l.keydown[0]({ key: "ArrowLeft", preventDefault: function () {} });
+
+/* the target and hand-edited stats survive a reload; the reload button replaces them */
+byId["bomb-ore"].value = "5000";
+fire(byId["bomb-ore"], "input");
+byId["bomb-stat-bombOfPlentyMulti"].value = "300";
+fire(byId["bomb-stat-bombOfPlentyMulti"], "input");
+global.BombTool.init();
+check("bomb reload keeps the target",
+  global.BombTool.getState().mode === "bar" &&
+  global.BombTool.getState().level === 10 &&
+  global.BombTool.getState().ore === 5000 &&
+  byId["bomb-level"].value === "10" && byId["bomb-ore"].value === "5000");
+check("bomb reload keeps hand-edited stats",
+  global.BombTool.getState().source === "account-edited" &&
+  global.BombTool.getState().values.bombOfPlentyMulti === 300 &&
+  byId["bomb-stat-bombOfPlentyMulti"].value === "300");
+fire(byId["bomb-reload-account"], "click");
+check("bomb reload button replaces the hand edits",
+  global.BombTool.getState().source === "account" &&
+  global.BombTool.getState().values.bombOfPlentyMulti !== 300);
+global.BombTool.init();
+check("bomb reload of untouched account stats stays on the account",
+  global.BombTool.getState().source === "account" && global.BombTool.getState().level === 10);
+
 /* ---- goal bar interactions ---------------------------------------- */
 var modeBars = byId["goal-mode-bars"];
 modeBars.checked = true;

@@ -14,6 +14,7 @@
   var BD = global.BombData;
   var ACCOUNT = global.AccountStore || null;
   var ES = global.ExportStats || null;
+  var KEY = "obelisk-bombs-v1";
 
   var state = {
     values: BD ? BD.defaults() : {},
@@ -74,6 +75,13 @@
     return (n * 100).toFixed(2) + "%";
   }
 
+  // Margins span 0.01% to thousands of percent; keep about three significant figures.
+  function fmtMargin(n) {
+    if (n === null || n === undefined || !isFinite(n)) return "-";
+    var p = n * 100;
+    return p.toFixed(p < 10 ? 2 : p < 100 ? 1 : 0) + "%";
+  }
+
   function fmtFactor(n) {
     if (n === null || n === undefined || !isFinite(n)) return "-";
     return String(Math.round(n * 10000) / 10000);
@@ -95,6 +103,17 @@
     var w = el("div", "table-scroll");
     w.appendChild(table);
     return w;
+  }
+
+  function getStorage() {
+    try {
+      if (global && global.localStorage) return global.localStorage;
+    } catch (e) { /* storage blocked */ }
+    return null;
+  }
+
+  function asNumber(v, fallback) {
+    return typeof v === "number" && isFinite(v) ? v : fallback;
   }
 
   function fmtShare(n) {
@@ -228,6 +247,60 @@
   }
 
   /* ---------------------------------------------------------------- */
+  /* saved inputs                                                     */
+  /* ---------------------------------------------------------------- */
+
+  function loadSaved() {
+    var store = getStorage();
+    if (!store) return null;
+    try {
+      var saved = JSON.parse(store.getItem(KEY) || "null");
+      return saved && typeof saved === "object" ? saved : null;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  // Runs after the account (or defaults) is applied, so the saved target wins
+  // over the account's floor and portals. Stats are only restored when edited by
+  // hand; untouched account stats are re-read so a newer export shows up.
+  function restoreSaved(saved, hasAccount) {
+    if (saved.mode === "bar" || saved.mode === "floor") state.mode = saved.mode;
+    var level = Math.floor(asNumber(saved.level, state.level));
+    if (BD.barByLevel(level)) state.level = level;
+    var floor = Math.floor(asNumber(saved.floor, state.floor));
+    if (BD.floorInfo(floor)) state.floor = floor;
+    // A cleared ore field saves 0; don't reopen the tool showing 0 bars everywhere.
+    if (asNumber(saved.ore, 0) > 0) state.ore = saved.ore;
+    state.portalChance = Math.max(0, Math.min(100, asNumber(saved.portalChance, state.portalChance)));
+    state.portalMulti = Math.max(1, asNumber(saved.portalMulti, state.portalMulti));
+
+    if ((saved.source === "manual" || saved.source === "account-edited") &&
+        saved.values && typeof saved.values === "object") {
+      state.values = BD.normalizeValues(saved.values);
+      state.source = hasAccount ? "account-edited" : "manual";
+    }
+  }
+
+  function saveInputs() {
+    var store = getStorage();
+    if (!store) return;
+    var edited = state.source === "manual" || state.source === "account-edited";
+    try {
+      store.setItem(KEY, JSON.stringify({
+        mode: state.mode,
+        level: state.level,
+        floor: state.floor,
+        ore: state.ore,
+        portalChance: state.portalChance,
+        portalMulti: state.portalMulti,
+        source: state.source,
+        values: edited ? state.values : null
+      }));
+    } catch (e) { /* storage full or blocked */ }
+  }
+
+  /* ---------------------------------------------------------------- */
   /* inputs                                                           */
   /* ---------------------------------------------------------------- */
 
@@ -321,6 +394,8 @@
   }
 
   function fillContextInputs() {
+    if (nodes.level) nodes.level.value = String(state.level);
+    if (nodes.ore) nodes.ore.value = inputValue(state.ore);
     if (nodes.floor) nodes.floor.value = String(state.floor);
     if (nodes.portalChance) nodes.portalChance.value = inputValue(state.portalChance);
     if (nodes.portalMulti) nodes.portalMulti.value = inputValue(state.portalMulti);
@@ -447,6 +522,64 @@
     nodes.levelNote.textContent = note;
   }
 
+  function winnerName(winner) {
+    return winner === "bop" ? "Bomb of Plenty" : winner === "trans" ? "Transmuter" : "Tie";
+  }
+
+  function pick(n) {
+    if (state.mode === "floor") state.floor = n;
+    else state.level = n;
+    fillContextInputs();
+    update();
+    // update() rebuilt the strip, so move keyboard focus to the new cell.
+    var cell = document.getElementById("bomb-cell-" + n);
+    if (cell && typeof cell.focus === "function") cell.focus();
+  }
+
+  // One clickable square per bar level or floor, coloured by the winner.
+  // cells: [{ n, label, winner, groupStart }]
+  function winnerStrip(cells, selected, what) {
+    var wrap = el("div", "bomb-strip-wrap");
+    var strip = el("div", "bomb-strip");
+    strip.id = "bomb-strip";
+    strip.setAttribute("role", "group");
+    strip.setAttribute("aria-label", "Winner at every " + what);
+    cells.forEach(function (c) {
+      var b = el("button", "bomb-cell " + c.winner +
+        (c.groupStart ? " group-start" : "") + (c.n === selected ? " selected" : ""));
+      b.type = "button";
+      b.id = "bomb-cell-" + c.n;
+      b.title = c.label;
+      b.setAttribute("aria-label", c.label);
+      b.setAttribute("aria-pressed", c.n === selected ? "true" : "false");
+      // Roving tabindex: one tab stop for the whole strip, arrow keys move within it.
+      b.tabIndex = c.n === selected ? 0 : -1;
+      b.addEventListener("click", function () { pick(c.n); });
+      strip.appendChild(b);
+    });
+    strip.addEventListener("keydown", function (e) {
+      var step = e && e.key === "ArrowRight" ? 1 : e && e.key === "ArrowLeft" ? -1 : 0;
+      if (!step) return;
+      e.preventDefault();
+      var next = Math.max(cells[0].n, Math.min(cells[cells.length - 1].n, selected + step));
+      if (next !== selected) pick(next);
+    });
+    wrap.appendChild(strip);
+
+    var legend = el("div", "bomb-strip-legend");
+    legend.appendChild(el("span", "bomb-key bop"));
+    legend.appendChild(el("span", null, "Bomb of Plenty"));
+    legend.appendChild(el("span", "bomb-key trans"));
+    legend.appendChild(el("span", null, "Transmuter"));
+    if (cells.some(function (c) { return c.winner === "tie"; })) {
+      legend.appendChild(el("span", "bomb-key tie"));
+      legend.appendChild(el("span", null, "Tie"));
+    }
+    legend.appendChild(el("span", "bomb-strip-tip", "Pick a square to compare that " + what + "."));
+    wrap.appendChild(legend);
+    return wrap;
+  }
+
   function bombCard(kind, title, total, details, winner, note) {
     var card = el("article", "bomb-card" + (winner === kind ? " winner" : ""));
     card.id = "bomb-" + kind + "-card";
@@ -498,7 +631,7 @@
       main = "Both bombs produce essentially the same bars at " + bar.name + " (level " + bar.level + ").";
     } else {
       main = (winner === "bop" ? "Bomb of Plenty" : "Transmuter Bomb") + " produces " +
-        fmtPct(row.advantage) + " more bars at " + bar.name + " (level " + bar.level + ").";
+        fmtMargin(row.advantage) + " more bars at " + bar.name + " (level " + bar.level + ").";
     }
     var verdictText = el("p", "bomb-verdict-text", main);
     verdictText.id = "bomb-verdict-text";
@@ -513,7 +646,7 @@
     var cards = el("div", "bomb-cards");
     cards.appendChild(bombCard("bop", "Bomb of Plenty", bopBars, [
       ["Expected ore", fmt(result.bopOre * ore)],
-      ["Craft multiplier", fmt(result.craftMultiplier) + "x"],
+      ["Craft multiplier", "×" + fmt(result.craftMultiplier)],
       ["Effective cost", fmtInt(row.effectiveCost) + " ore/bar"]
     ], winner));
     cards.appendChild(bombCard("trans", "Transmuter Bomb", transBars, [
@@ -549,6 +682,15 @@
     var breakpointMain = el("p", "bomb-breakpoint-main", line);
     breakpointMain.id = "bomb-breakpoint-main";
     bp.appendChild(breakpointMain);
+    bp.appendChild(winnerStrip(result.rows.map(function (r, i) {
+      return {
+        n: r.level,
+        winner: r.winner,
+        groupStart: i > 0 && r.bar.world !== result.rows[i - 1].bar.world,
+        label: "Level " + r.level + " " + r.bar.name + ": " + winnerName(r.winner) +
+          (r.winner === "tie" ? "" : " by " + fmtMargin(r.advantage))
+      };
+    }), state.level, "bar level"));
 
     var detail;
     if (isFinite(result.transition) && result.transition > 0) {
@@ -569,10 +711,6 @@
     if (result.tieCount > 0) {
       bp.appendChild(el("p", "hint", result.tieCount + " level" + (result.tieCount === 1 ? " is" : "s are") +
         " effectively tied; rounding can put a level right at the breakpoint."));
-    }
-    if (Math.abs(result.costMultiplier - 1) > 1e-9) {
-      bp.appendChild(el("p", "hint",
-        "Effective cost is rounded down after the craft-cost multiplier, so a level right at the breakpoint can differ from the unrounded estimate."));
     }
     root.appendChild(bp);
   }
@@ -618,7 +756,7 @@
       tr.appendChild(el("td", "num", fmt(row.transPerOre)));
       var winner = row.winner === "bop" ? "BoP" : row.winner === "trans" ? "Trans" : "Tie";
       tr.appendChild(el("td", "bomb-winner " + row.winner, winner));
-      tr.appendChild(el("td", "num", row.winner === "tie" ? "-" : fmtPct(row.advantage)));
+      tr.appendChild(el("td", "num", row.winner === "tie" ? "-" : fmtMargin(row.advantage)));
       tbody.appendChild(tr);
     });
     table.appendChild(tbody);
@@ -626,7 +764,7 @@
     return sec;
   }
 
-  function renderFloorResults(result) {
+  function renderFloorResults(result, floorRows) {
     var root = nodes.results;
     if (!root) return;
     root.innerHTML = "";
@@ -651,7 +789,7 @@
       main = "Both bombs produce essentially the same bars from floor " + info.floor + "'s expected ore mix.";
     } else {
       main = (winner === "bop" ? "Bomb of Plenty" : "Transmuter Bomb") + " produces " +
-        fmtPct(result.advantage) + " more bars from floor " + info.floor + "'s expected ore mix.";
+        fmtMargin(result.advantage) + " more bars from floor " + info.floor + "'s expected ore mix.";
     }
     var verdictText = el("p", "bomb-verdict-text", main);
     verdictText.id = "bomb-verdict-text";
@@ -668,7 +806,7 @@
     cards.appendChild(bombCard("bop", "Bomb of Plenty", bopBars, [
       ["Portal yield", fmtFactor(result.totalYield) + "x"],
       ["Ore after BoP", fmt(result.bopOre * result.totalYield * ore)],
-      ["Craft multiplier", fmt(result.craftMultiplier) + "x"],
+      ["Craft multiplier", "×" + fmt(result.craftMultiplier)],
       ["Effective mix cost", fmtBreakpoint(result.mixCost) + " ore/bar"]
     ], winner, figureNote));
     cards.appendChild(bombCard("trans", "Transmuter Bomb", transBars, [
@@ -703,6 +841,15 @@
     var breakpointMain = el("p", "bomb-breakpoint-main", line);
     breakpointMain.id = "bomb-breakpoint-main";
     bp.appendChild(breakpointMain);
+    bp.appendChild(winnerStrip(floorRows.map(function (f, i) {
+      return {
+        n: f.info.floor,
+        winner: f.result.winner,
+        groupStart: i > 0 && f.info.zone !== floorRows[i - 1].info.zone,
+        label: "Floor " + f.info.floor + " (" + mixLabel(f.info) + "): " + winnerName(f.result.winner) +
+          (f.result.winner === "tie" ? "" : " by " + fmtMargin(f.result.advantage))
+      };
+    }), state.floor, "floor"));
 
     var detail;
     if (isFinite(result.transition) && result.transition > 0) {
@@ -730,12 +877,6 @@
     } else if (result.portal.multi <= 1 + 1e-9) {
       bp.appendChild(el("p", "hint",
         "A portal multiplier of 1x makes portals a pure ore downgrade; they add no extra ore."));
-    }
-    bp.appendChild(el("p", "hint",
-      "Portal ore is spread uniformly from Tin up to each native ore's level. The portal multiplier only applies to portaled ore, so it can move the mix's effective cost."));
-    if (Math.abs(result.costMultiplier - 1) > 1e-9) {
-      bp.appendChild(el("p", "hint",
-        "Effective cost is rounded down after the craft-cost multiplier, so a floor right at the breakpoint can differ from the unrounded estimate."));
     }
     root.appendChild(bp);
     root.appendChild(renderNativeRows(info, result));
@@ -796,7 +937,7 @@
 
         var winner = row.winner === "bop" ? "BoP" : row.winner === "trans" ? "Trans" : "Tie";
         tr.appendChild(el("td", "bomb-winner " + row.winner, winner));
-        tr.appendChild(el("td", "num", row.winner === "tie" ? "-" : fmtPct(row.advantage)));
+        tr.appendChild(el("td", "num", row.winner === "tie" ? "-" : fmtMargin(row.advantage)));
 
         tbody.appendChild(tr);
       });
@@ -824,7 +965,7 @@
     }
   }
 
-  function renderFloorTable() {
+  function renderFloorTable(floorRows) {
     if (!nodes.table) return;
     nodes.table.innerHTML = "";
 
@@ -865,10 +1006,9 @@
       tbody.appendChild(zoneRow);
 
       for (var floor = zone.startFloor; floor <= zone.endFloor; floor++) {
-        var info = BD.floorInfo(floor);
-        var mix = BD.portalMix(info, state.portalChance, state.portalMulti);
-        var result = BD.analyseMix(state.values, mix);
-        if (!result) continue;
+        var info = floorRows[floor - 1].info;
+        var mix = floorRows[floor - 1].mix;
+        var result = floorRows[floor - 1].result;
 
         if (result.winner === "bop") bopWins++;
         else if (result.winner === "trans") transWins++;
@@ -887,7 +1027,7 @@
 
         var winner = result.winner === "bop" ? "BoP" : result.winner === "trans" ? "Trans" : "Tie";
         tr.appendChild(el("td", "bomb-winner " + result.winner, winner));
-        tr.appendChild(el("td", "num", result.winner === "tie" ? "-" : fmtPct(result.advantage)));
+        tr.appendChild(el("td", "num", result.winner === "tie" ? "-" : fmtMargin(result.advantage)));
 
         tbody.appendChild(tr);
       }
@@ -907,9 +1047,19 @@
     }
   }
 
+  // Every floor's mix and result, shared by the strip and the floor table.
+  function floorRowsOf() {
+    var rows = [];
+    for (var floor = 1; floor <= BD.FLOOR_COUNT; floor++) {
+      var info = BD.floorInfo(floor);
+      var mix = BD.portalMix(info, state.portalChance, state.portalMulti);
+      rows.push({ info: info, mix: mix, result: BD.analyseMix(state.values, mix) });
+    }
+    return rows;
+  }
+
   function update() {
     if (!BD) return;
-    var result = BD.analyse(state.values);
     var bar = BD.barByLevel(state.level) || BD.BARS[0];
     state.level = bar.level;
 
@@ -917,15 +1067,18 @@
       var info = BD.floorInfo(state.floor) || BD.floorInfo(1);
       state.floor = info.floor;
       var floorResult = BD.analyseFloor(state.values, state.floor, state.portalChance, state.portalMulti);
+      var floorRows = floorRowsOf();
       renderFloorNote(info, floorResult);
-      renderFloorResults(floorResult);
-      renderFloorTable();
+      renderFloorResults(floorResult, floorRows);
+      renderFloorTable(floorRows);
     } else {
+      var result = BD.analyse(state.values);
       var row = result.rows[bar.level - 1];
       renderLevelNote(bar, row, result);
       renderResults(bar, row, result);
       renderTable(result);
     }
+    saveInputs();
   }
 
   /* ---------------------------------------------------------------- */
@@ -972,22 +1125,15 @@
     bindControls();
     syncModeUI();
 
+    var saved = loadSaved();
     var acct = readAccount();
-    if (acct && acct.stats) {
-      applyAccount(acct);
-    } else {
-      state.values = BD.defaults();
-      state.source = "defaults";
-      state.applied = 0;
-      state.missing = BD.FIELDS.length;
-      state.mode = "bar";
-      state.level = 1;
-      state.ore = 1000;
-      state.floor = 1;
-      state.portalChance = 0;
-      state.portalMulti = 1;
-      if (nodes.ore) nodes.ore.value = state.ore;
-      if (nodes.statsDetails) nodes.statsDetails.open = true;
+    var hasAccount = !!(acct && acct.stats);
+    if (hasAccount) applyAccount(acct);
+    else resetToDefaults(true);
+
+    if (saved) {
+      restoreSaved(saved, hasAccount);
+      fillStatsInputs();
       fillContextInputs();
       syncModeUI();
       updateSourceNote();

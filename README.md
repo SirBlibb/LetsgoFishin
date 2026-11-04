@@ -5,6 +5,7 @@ A static website with a shared **account importer** plus tools for *Idle Obelisk
 - **Let's Go Fishing** ranks every fishing gem upgrade by how much fish/time it adds **per gem you spend**.
 - **Bomb Comparison** works out whether the **Bomb of Plenty** or **Transmuter Bomb** produces more bars at a chosen bar level, or across a dungeon floor's Void Drone portal mix.
 - **Goal ETA** estimates how long an ore or bar target will take from a measured ore/hour rate, with progress, milestones, and the rate a deadline needs.
+- **Best Floor to Farm** ranks all 132 dungeon floors for any ore or vein, with Void Drone and bomb advice, warnings and a what-if stats editor.
 - **Contract Point Planner** ranks all 34 contract upgrades for a chosen mix of ore, veins, stars, bars, and damage, then turns spare CP (or a full respec) into an ordered spend plan.
 
 The fishing optimizer is a faithful JavaScript port of the community Google Sheet **"Let's Go
@@ -27,8 +28,8 @@ No build step, no server: open `index.html` in a browser.
 2. Paste your ExportStats JSON on the home page and press **Apply JSON**, or click **Load sample**
    to try it with a real late-game export. You can also drag a `.json` file onto the page.
 3. Open a tool from the cards (or the header): **Let's Go Fishing** (`#/fishing`),
-   **Bomb comparison** (`#/bombs`), **Goal ETA** (`#/goal`), or **Contract planner**
-   (`#/contracts`). A refresh or bookmark reopens the tool directly.
+   **Bomb comparison** (`#/bombs`), **Goal ETA** (`#/goal`), **Contract planner**
+   (`#/contracts`), or **Best floor** (`#/floors`, `#/floors/veins`). A refresh or bookmark reopens the tool directly.
 4. Anything the game did not record (a few bar levels, bundles, statues, etc.) stays at 0 and is
    shown as a manual field - fill those in inside the tool.
 5. In the fishing tool, read the **Ranking** table: it is sorted best-first. `Score/gem` is the
@@ -328,6 +329,56 @@ different bar counts.
   not predict offline time, downtime, or upgrades you buy along the way.
 - A deadline assumes you actually play the hours you entered before that date.
 
+## Best Floor to Farm (`#/floors`)
+
+A port of the community sheet **"IOM - Best Floor To Farm" V3.4.2** (game v2.2.52; CrisRody, Metzli
+and OrionAF). Choose an **ore** or a **vein** and the tool ranks the floors for it. The sheet's
+JSON tab is replaced by your saved account, so there is no paste step.
+
+- **Best ore:** ranks floors by ore per hour for the selected ore. With the Void Drone it lists the
+  top 20 floors (a portal turns a rock into any ore of equal or lower level, so higher floors work
+  too); without it the sheet lists just the best 2. "Value" is the share of a perfect floor (every
+  ore on screen is yours); values with and without the drone use different perfect floors.
+- **Best veins:** ranks floors by veins per hour (spawn rate and rarity, 2x research, the
+  Veinmorpher bomb, golden / rainbow / gleaming veins and void portals). Floors with equal values
+  share a rank, shown as `1-8`.
+- **Void Drone:** *Auto* follows the sheet (use it when its best floor beats the best no-void
+  floor); *Always* / *Never* override that choice without changing your stats.
+- **Floor modifiers:** the 23 "negative" floor ranges (fixed golden-floor chances, rainbow / golden
+  ore / prismatic changes, 0.4x portal floors, slower game speed) are applied per floor and shown
+  as tags.
+- **Warnings and reminders** (account only): outdated or newer export, ore or floors you cannot
+  one-shot, locked or unresearched veins, exported on a modifier floor, Void / Minotaur /
+  Veinseeker drone not owned, equipped or fueled, Golden Steak off or running out. Every reminder
+  is listed, not only the first as in the sheet. **Bomb advice** (Bomb of Plenty vs Transmuter) is
+  shown for the selected ore.
+- **Your stats:** every stat the sheet's green cells use, pre-filled from the account. Edits are
+  kept as overrides on top of the export (marked *edited*; a fresh import clears them). Without an
+  account the sheet's manual mode applies, including its world gates and the Void Drone multiplier
+  stack (grade, Minotaur, Coal Generator, level-400 upgrade, Omniportal, contract, Arcanist, Hydra).
+  **Imported stats** mirrors the sheet's JSON tab (name, key, value, value used) and **Floor
+  explorer** lists all 132 floors, sortable.
+- Saved in `obelisk-floors-v1`; the home-page **Reset** clears it.
+
+Differences from the sheet:
+
+- The "can I one-shot it" test reports the real answer. The sheet's text parser leaves a stray `}`
+  on the last export key (`3.0}`), so its one-shot cells show `#VALUE!` whenever damage is not
+  enough, and its `IFERROR` then reads that as "yes".
+- Version checks compare numbers (`v2.2.9 < v2.2.10`), and the sheet's "you are using an outdated
+  sheet" check is dropped.
+- Manual percent inputs are real percents (the sheet wants fractions).
+
+Data: ore, vein and modifier tables live in `floortables.js`, **generated** by
+`tools/extract_floor_sheet.py` from an `.xlsx` download of the sheet (needs `openpyxl`; see the
+script header). It also writes the golden fixtures (`test/ref_floors_*.json`), the export fixture
+and the vein pictures in `img/veins/`. Sheet bar costs differ slightly from the wiki costs in
+`bombdata.js` (for example Cognite 1046 vs 1050); both are kept as they are.
+
+Caveats: the sheet's values are only verifiable for the one ore and vein it had selected when it
+was exported (Tin / Stone Vein). Run the sheet with the numbers you care about when something looks
+off. Export your stats on a floor without modifiers.
+
 ## Contract Point Planner (`#/contracts`)
 
 Ranks every contract upgrade for **ore**, **veins**, **stars**, **bars/crafting**, and **damage**,
@@ -445,14 +496,21 @@ Without an account the planner uses OB 0, cap +0, and 0% cost reduction.
 | `goals.js` | Goal ETA UI and measured-rate helper (`window.GoalTool`) |
 | `contractdata.js` | Contract levels, caps, costs, goals, ranking, and spend plans (`window.ContractData`) |
 | `contracts.js` | Contract Point Planner UI (`window.ContractTool`) |
+| `floortables.js` | Generated ore / vein / floor-modifier tables (`window.FloorTables`) |
+| `floordata.js` | Best Floor maths ported from the sheet (`window.FloorData`) |
+| `floors.js` | Best Floor to Farm UI (`window.FloorTool`) |
+| `img/veins/` | The 21 vein pictures from the sheet |
+| `tools/extract_floor_sheet.py` | Dev script: sheet .xlsx -> tables, fixtures, images |
 | `app.js` | View routing + fishing tool UI wiring + account import |
-| `sample.js` | A sample ExportStats export (`window.SAMPLE_EXPORT`) |
+| `sample.js` | A sample ExportStats export (`window.SAMPLE_EXPORT`, game v2.2.20) |
+| `sample_v2252.js` | A v2.2.52 export (`window.SAMPLE_EXPORT_V2252`), loaded by **Load v2.2.52 sample** |
 | `test/validate.js` | Model vs. the sheet's cached default values |
 | `test/validate_export.js` | Export mapping + full-sample run |
 | `test/validate_fish.js` | Fish data shape + fish ranking behaviour |
 | `test/validate_bombs.js` | Bomb formulas, floor/portal mixes, breakpoints, and page wiring |
 | `test/validate_goal.js` | Goal ETA formulas, bar conversion, and page wiring |
 | `test/validate_contracts.js` | Contract costs, goals, ranking, plans, respec, and page wiring |
+| `test/validate_floors.js` | Best Floor maths vs the sheet's cached values (default and loaded), manual mode, import, and page wiring |
 | `test/ui_smoke.js` | Headless UI wiring smoke test (all tools) |
 
 ## Running the tests
@@ -464,6 +522,7 @@ node test/validate_fish.js
 node test/validate_bombs.js
 node test/validate_goal.js
 node test/validate_contracts.js
+node test/validate_floors.js
 node test/ui_smoke.js
 ```
 

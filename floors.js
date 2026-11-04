@@ -796,7 +796,7 @@
       factRow(dl, "Vein spawns here", row.AG ? "Yes (floors " + res.vein.firstFloor + "–" + res.vein.lastFloor + ")" : "No");
       factRow(dl, "Portal weight", fmtPct(row.AH), "share of the floor's ores a portal can turn into this vein's ore range");
       factRow(dl, "Portal chance here", fmtPct(Math.min(row.mods.portalX * env.portal.rawChance, 1)));
-      factRow(dl, "Node fraction", fmtPct(row.AI, 2), "share of rocks that become this vein (with your void choice)");
+      factRow(dl, "Veins per rock", "\u00d7" + fmt(row.AI), "expected veins per rock on this floor, counting what void portals add (1 = every rock a vein)");
       factRow(dl, "Veins per hour", fmt(row.AJ));
       factRow(dl, "Veins per screen", fmt(res.veinsPerScreen));
       factRow(dl, "Variant multi", fmt(res.variantMulti), "expected golden/rainbow/gleaming vein multiplier");

@@ -755,7 +755,7 @@
       var AG = (fl.floor >= V54 && fl.floor <= V55) ? 1 : 0;
       var AH = V13 === 0 ? 0 : portalWeight(fl.oreA) * fl.shareA + portalWeight(fl.oreB) * fl.shareB;
       return { floor: fl.floor, world: fl.world, mods: fl.mods, negative: fl.negative, notes: fl.notes,
-               oreA: fl.oreA, oreB: fl.oreB, AE: AE, AF: AF, AG: AG, AH: AH,
+               oreA: fl.oreA, oreB: fl.oreB, shareA: fl.shareA, shareB: fl.shareB, AE: AE, AF: AF, AG: AG, AH: AH,
                AK: V61 * ((1 - V14 * AE) * AG + V14 * AE * AH * V67) * AF * V6 * V62,
                noVoid: V61 * AG * AF * V6 * V62 };
     });

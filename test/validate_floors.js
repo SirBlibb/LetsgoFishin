@@ -409,6 +409,26 @@ function checkBestVeins(label, env, res, r) {
   })());
 })();
 
+/* ---- the sheet's JSON tab ------------------------------------------ */
+
+(function () {
+  var r = ref("ref_floors_sample.json").json;
+  var rows = FD.importedRows(fixtureExport().stats);
+  var bad = [], checked = 0;
+  rows.forEach(function (row) {
+    var k = r["K" + row.row];
+    if (k === undefined) return;
+    // The sheet's text parser leaves a stray "}" on the last key of the export ("3.0}"),
+    // which is what turns its one-shot cells into #VALUE!; the real value is the number.
+    if (typeof k === "string" && /^[0-9.]+\}$/.test(k)) { if (row.used !== parseFloat(k)) bad.push("K" + row.row + " stray brace"); checked++; return; }
+    checked++;
+    var used = row.used;
+    var same = typeof k === "number" ? (typeof used === "number" && close(used, k, tolFor(k))) : used === k;
+    if (!same) bad.push("K" + row.row + " " + row.name + ": " + used + " vs " + k);
+  });
+  check("importedRows matches the sheet's K column (" + bad.slice(0, 3).join("; ") + ")", bad.length === 0 && checked > 70);
+})();
+
 /* ---- page wiring ----------------------------------------------------- */
 
 (function () {

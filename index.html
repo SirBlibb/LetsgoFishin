@@ -19,6 +19,7 @@
       <a href="#/bombs" data-nav="bombs">Bomb comparison</a>
       <a href="#/goal" data-nav="goal">Goal ETA</a>
       <a href="#/contracts" data-nav="contracts">Contract planner</a>
+      <a href="#/floors" data-nav="floors">Best floor</a>
     </nav>
   </div>
 </header>
@@ -32,6 +33,7 @@
       <div class="import-controls">
         <input type="file" id="import-file" accept=".json,application/json">
         <button id="btn-sample" type="button">Load sample</button>
+        <button id="btn-sample-new" class="ghost" type="button">Load v2.2.52 sample</button>
         <button id="btn-clear" type="button">Reset</button>
       </div>
       <label class="import-label" for="import-text">Paste ExportStats JSON</label>
@@ -112,6 +114,21 @@
           <div class="tool-card-footer">
             <span id="contracts-account-note" class="hint"></span>
             <a class="button-link" href="#/contracts">Open tool</a>
+          </div>
+        </article>
+
+        <article class="tool-card">
+          <div class="tool-card-head">
+            <div>
+              <h3>Best Floor to Farm</h3>
+              <p class="tool-kicker">Where your ore or veins pay most</p>
+            </div>
+            <span id="floors-badge" class="badge">Manual entry</span>
+          </div>
+          <p>Ranks all 132 floors for any ore or vein using your golden, rainbow, galactic and void portal stats, with Void Drone and bomb advice.</p>
+          <div class="tool-card-footer">
+            <span id="floors-account-note" class="hint"></span>
+            <a class="button-link" href="#/floors">Open tool</a>
           </div>
         </article>
       </div>
@@ -551,12 +568,142 @@
       </details>
     </section>
   </div>
+
+  <!-- ============================ FLOORS =========================== -->
+  <div id="view-floors" class="view" hidden>
+    <section class="panel tool-header-panel">
+      <a class="back-link" href="#/home">&larr; All tools</a>
+      <div class="tool-title-row">
+        <div>
+          <h2>Best Floor to Farm <span class="title-sub">Where your ore or veins pay most</span></h2>
+          <p class="lead">Pick an ore or a vein and see which floors earn the most with your multipliers, golden / rainbow / galactic floors and Void Drone portals.</p>
+        </div>
+      </div>
+      <div class="tool-account-bar">
+        <span id="floors-account-status" class="hint"></span>
+        <button id="floors-load-sample" class="ghost" type="button">Try the v2.2.52 sample</button>
+        <a class="ghost-link" href="#/home">Change account data</a>
+      </div>
+    </section>
+
+    <section class="panel">
+      <h2>1. What are you farming?</h2>
+      <div class="goal-mode" role="radiogroup" aria-label="Farming target">
+        <label class="goal-mode-option">
+          <input type="radio" id="floors-mode-ore" name="floors-mode" value="ore" checked>
+          <span>Best ore floor</span>
+        </label>
+        <label class="goal-mode-option">
+          <input type="radio" id="floors-mode-veins" name="floors-mode" value="veins">
+          <span>Best vein floor</span>
+        </label>
+      </div>
+
+      <div id="floors-ore-picker" class="goal-controls floors-picker">
+        <label class="field">
+          <span class="field-label">Ore</span>
+          <select id="floors-ore"></select>
+        </label>
+        <label class="field">
+          <span class="field-label">Filter the ore list</span>
+          <input id="floors-ore-filter" type="search" placeholder="Type part of a name">
+        </label>
+      </div>
+
+      <div id="floors-vein-picker" class="floors-picker" hidden>
+        <span class="field-label" id="floors-vein-label">Vein</span>
+        <div id="floors-vein-grid" class="floors-vein-grid" role="group" aria-labelledby="floors-vein-label"></div>
+      </div>
+
+      <div class="goal-controls floors-options">
+        <label class="field">
+          <span class="field-label">Void Drone</span>
+          <select id="floors-void-mode">
+            <option value="auto">Auto (recommended)</option>
+            <option value="on">Always use it</option>
+            <option value="off">Never use it</option>
+          </select>
+        </label>
+        <label class="check floors-check">
+          <input type="checkbox" id="floors-show-w4">
+          <span id="floors-show-w4-label">Include World 4 floors for World 1&ndash;3 ores</span>
+        </label>
+      </div>
+      <p class="hint" id="floors-void-note"></p>
+    </section>
+
+    <section class="panel results-panel">
+      <h2>2. Best floor</h2>
+      <div id="floors-hero" aria-live="polite"></div>
+      <div id="floors-alerts"></div>
+    </section>
+
+    <section class="panel results-panel">
+      <h2 id="floors-ranking-title">3. Ranking</h2>
+      <div id="floors-ranking"></div>
+    </section>
+
+    <section class="panel results-panel">
+      <h2>4. Floor breakdown</h2>
+      <div id="floors-detail" aria-live="polite"></div>
+    </section>
+
+    <section class="panel acc-panel">
+      <details class="acc" id="floors-stats-details">
+        <summary>
+          <span class="acc-title">Your stats</span>
+          <span class="acc-sub">Pre-filled from your account &ndash; edit for a what-if</span>
+          <span class="acc-icon" aria-hidden="true"></span>
+        </summary>
+        <div class="acc-body">
+          <div id="floors-stats"></div>
+        </div>
+      </details>
+      <details class="acc" id="floors-imported-details">
+        <summary>
+          <span class="acc-title">Imported stats</span>
+          <span class="acc-sub">How each ExportStats value is read</span>
+          <span class="acc-icon" aria-hidden="true"></span>
+        </summary>
+        <div class="acc-body">
+          <div id="floors-imported"></div>
+        </div>
+      </details>
+      <details class="acc" id="floors-explorer-details">
+        <summary>
+          <span class="acc-title">Floor explorer</span>
+          <span class="acc-sub">All 132 floors, sortable</span>
+          <span class="acc-icon" aria-hidden="true"></span>
+        </summary>
+        <div class="acc-body">
+          <div id="floors-explorer"></div>
+        </div>
+      </details>
+    </section>
+
+    <section class="panel">
+      <details>
+        <summary>How this works</summary>
+        <p>A port of the community sheet <em>IOM &ndash; Best Floor To Farm</em> (V3.4.2, game v2.2.52). Every floor gets a value per hour and floors are ranked by it.</p>
+        <ul>
+          <li><strong>Floor ores:</strong> floor <code>f</code> mixes ore <code>round(f/2) + max(0, &lfloor;(f&minus;13)/6&rfloor;)</code> and the next one, 80/20 on odd floors and 50/50 on even ones.</li>
+          <li><strong>Floors per hour:</strong> <code>2880 &times; base game speed &times; floor speed modifier</code>, with World 3 at 0.7&times; until the speed notice is bought and World 4 at <code>1 &minus; quest modifier</code>. The game speed in your export is divided by the penalties of the floor you exported on.</li>
+          <li><strong>Floor multi:</strong> golden ore &times; ore income &times; golden floor &times; rainbow floor &times; galactic floor &times; prismatic floor, using the fixed golden-floor chance and modifiers of the &ldquo;negative&rdquo; floors (e.g. golden floors at 30&ndash;50%, Hattium / Mintium floors cutting portal chance to 0.4&times;).</li>
+          <li><strong>Void Drone:</strong> a portal turns a rock into a random ore of equal or lower level, so it can reach your ore from any higher floor. Auto uses it when its best floor beats the best no-void floor.</li>
+          <li><strong>Value:</strong> the share of a &ldquo;perfect floor&rdquo; where every ore on screen is yours. Values with and without the Void Drone use different perfect floors, so compare floors, not the percentages across modes.</li>
+          <li><strong>Veins:</strong> veins per screen come from your spawn rate and the vein&rsquo;s rarity (doubled for 2&times; research, capped at a full screen); void portals can also turn rocks into veins.</li>
+        </ul>
+        <p class="hint">Differences from the sheet: stats are read from your saved account instead of the JSON tab, hand edits are kept as overrides, every reminder is shown (not just the first), the &ldquo;can&rsquo;t one-shot&rdquo; check reports the real answer where the sheet shows <code>#VALUE!</code> and then says &ldquo;yes&rdquo;, and Void Drone can be forced on or off. Warning: the sheet&rsquo;s numbers assume the stats are exported on a floor with no modifiers.</p>
+      </details>
+    </section>
+  </div>
 </main>
 
 <footer>
   <p>Fishing model ported from the community Google Sheet <em>Let's Go Fishing - V2.0.6</em>.
     Bomb comparison and Goal ETA use community crafting formulas and wiki bar costs; the contract
-    planner uses the wiki's contract cost tables. Not affiliated with the game. Verify before
+    planner uses the wiki's contract cost tables; Best Floor to Farm is ported from the community
+    sheet <em>IOM - Best Floor To Farm V3.4.2</em> (CrisRody, Metzli, OrionAF). Not affiliated with the game. Verify before
     spending gems or Contract Points.</p>
 </footer>
 
@@ -571,7 +718,11 @@
 <script src="goals.js"></script>
 <script src="contractdata.js"></script>
 <script src="contracts.js"></script>
+<script src="floortables.js"></script>
+<script src="floordata.js"></script>
+<script src="floors.js"></script>
 <script src="sample.js"></script>
+<script src="sample_v2252.js"></script>
 <script src="app.js"></script>
 </body>
 </html>

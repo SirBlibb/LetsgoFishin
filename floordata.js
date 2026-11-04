@@ -885,6 +885,109 @@
     });
   }
 
+
+  // The sheet's JSON tab (F3:K85), minus the derived bomb-damage rows: what each
+  // ExportStats value is called, and how the sheet turns it into the number it
+  // actually uses (pct: min(x/100, 1); steak: x * 0.001; bombdmg: x * min(1+extra, 99999)).
+  var IMPORT_ROWS = [
+    { row: 3, name: "Normal Void Portal Chance", key: "void_portal_chance", index: null, kind: "pct" },
+    { row: 4, name: "Void Portal Base Multi", key: "void_portal_base_multi", index: null, kind: "num" },
+    { row: 5, name: "Normal Void Portal Multi", key: "void_portal_multi", index: null, kind: "num" },
+    { row: 6, name: "Golden Void Portal Chance", key: "golden_void_portal_chance", index: null, kind: "pct" },
+    { row: 7, name: "Golden Void Portal Multi", key: "golden_void_portal_multi", index: null, kind: "num" },
+    { row: 8, name: "Rainbow Void Portal Chance", key: "rainbow_void_portal_chance", index: null, kind: "pct" },
+    { row: 9, name: "Rainbow Void Portal Multi", key: "rainbow_void_portal_multi", index: null, kind: "num" },
+    { row: 10, name: "Galactic Void Portal Chance", key: "galactic_void_portal_chance", index: null, kind: "pct" },
+    { row: 11, name: "Galactic Void Portal Multi", key: "galactic_void_portal_multi", index: null, kind: "num" },
+    { row: 12, name: "Game Speed Multi", key: "game_speed_multi", index: null, kind: "num" },
+    { row: 14, name: "Fishing Notices W3 Speed", key: "fishing_notices_array", index: 14, kind: "bool" },
+    { row: 15, name: "Currently on floor", key: "current_floor", index: null, kind: "num" },
+    { row: 16, name: "World Unlocked", key: "worlds_unlocked", index: null, kind: "num" },
+    { row: 17, name: "Golden Steak Perma Bonus", key: "steak_eaten", index: null, kind: "steak" },
+    { row: 18, name: "W4 Quests Done", key: "world_4_quest_progress", index: null, kind: "num" },
+    { row: 19, name: "Golden Steak Active?", key: "item_uptime_array", index: 25, kind: "flag" },
+    { row: 20, name: "Golden Steak remaining time", key: "item_uptime_array", index: 25, kind: "num" },
+    { row: 21, name: "Golden Floor Chance", key: "golden_floor_chance", index: null, kind: "pct" },
+    { row: 22, name: "Golden Floor Multi", key: "golden_floor_multi", index: null, kind: "num" },
+    { row: 23, name: "Rainbow Floor Chance", key: "rainbow_floor_chance", index: null, kind: "pct" },
+    { row: 24, name: "Rainbow Floor Multi", key: "rainbow_floor_multi", index: null, kind: "num" },
+    { row: 25, name: "Galactic Floor Chance", key: "galactic_floor_chance", index: null, kind: "pct" },
+    { row: 26, name: "Galactic Floor Multi", key: "galactic_floor_multi", index: null, kind: "num" },
+    { row: 27, name: "Prismatic Floor Chance", key: "prismatic_floor_chance", index: null, kind: "pct" },
+    { row: 28, name: "Prismatic Floor Multi", key: "prismatic_floor_multi", index: null, kind: "num" },
+    { row: 29, name: "Golden Ore Chance", key: "golden_ore_chance", index: null, kind: "pct" },
+    { row: 30, name: "Golden Ore Multi", key: "golden_ore_multi", index: null, kind: "num" },
+    { row: 31, name: "Rainbow Ore Chance", key: "rainbow_ore_chance", index: null, kind: "pct" },
+    { row: 32, name: "Rainbow Ore Multi", key: "rainbow_ore_multi", index: null, kind: "num" },
+    { row: 33, name: "Ore Income Multi", key: "ore_income_multi", index: null, kind: "num" },
+    { row: 34, name: "Ores Per Screen", key: "ores_per_screen", index: null, kind: "num" },
+    { row: 35, name: "Free Craft Chance", key: "free_craft_chance", index: null, kind: "pct" },
+    { row: 36, name: "2x Craft Chance", key: "double_craft_chance", index: null, kind: "pct" },
+    { row: 37, name: "3x Craft Chance", key: "triple_craft_chance", index: null, kind: "pct" },
+    { row: 38, name: "5x Craft Chance", key: "craft_5x_chance", index: null, kind: "pct" },
+    { row: 39, name: "10x Craft Chance", key: "craft_10x_chance", index: null, kind: "pct" },
+    { row: 40, name: "20x Craft Chance", key: "craft_20x_chance", index: null, kind: "pct" },
+    { row: 41, name: "100x Craft Chance", key: "craft_100x_chance", index: null, kind: "pct" },
+    { row: 42, name: "BoP Golden Ore Chance", key: "bomb_of_plenty_make_gold_chance", index: null, kind: "pct" },
+    { row: 43, name: "BoP Multiplier", key: "bomb_of_plenty_multi", index: null, kind: "num" },
+    { row: 44, name: "Trans. Bomb Multi", key: "bomb_transmuter_multi", index: null, kind: "num" },
+    { row: 45, name: "Trans. Bomb BoP chance", key: "bomb_trans_apply_bop_chance", index: null, kind: "pct" },
+    { row: 46, name: "Bar Craft Cost Multi", key: "bar_craft_cost_multi", index: null, kind: "num" },
+    { row: 47, name: "Void Drone Owned", key: "drones_suit_owned_array", index: 7, kind: "bool" },
+    { row: 48, name: "Void Drone Suit level", key: "drones_suit_level_array", index: 7, kind: "num" },
+    { row: 49, name: "Void Drone equipped", key: "is_drone_void_equipped", index: null, kind: "bool" },
+    { row: 50, name: "Void Drone fueled", key: "is_drone_void_equipped_and_fueled", index: null, kind: "bool" },
+    { row: 51, name: "Void Drone Fuel Grade", key: "void_fuel_grade", index: null, kind: "num" },
+    { row: 52, name: "Minotaur Drone Owned", key: "drones_suit_owned_array", index: 10, kind: "bool" },
+    { row: 53, name: "Minotaur Drone Suit level", key: "drones_suit_level_array", index: 10, kind: "num" },
+    { row: 54, name: "Minotaur Drone equipped", key: "is_drone_minotaur_equipped", index: null, kind: "bool" },
+    { row: 55, name: "Minotaur Drone fueled", key: "is_drone_minotaur_equipped_and_fueled", index: null, kind: "bool" },
+    { row: 56, name: "Minotaur Drone Fuel Grade", key: "minotaur_fuel_grade", index: null, kind: "num" },
+    { row: 57, name: "Veinseeker Drone Owned", key: "drones_suit_owned_array", index: 4, kind: "bool" },
+    { row: 58, name: "Veinseeker Drone Suit level", key: "drones_suit_level_array", index: 4, kind: "num" },
+    { row: 59, name: "Veinseeker Drone equipped", key: "is_drone_veinseeker_equipped", index: null, kind: "bool" },
+    { row: 60, name: "Veinseeker Drone fueled", key: "is_drone_veinseeker_equipped_and_fueled", index: null, kind: "bool" },
+    { row: 61, name: "Veinseeker Fuel Grade", key: "veinseeker_fuel_grade", index: null, kind: "num" },
+    { row: 62, name: "Vein Spawn Rate Multi", key: "vein_spawn_rate_multi", index: null, kind: "num" },
+    { row: 63, name: "Vein Income Multi", key: "vein_income_multi", index: null, kind: "num" },
+    { row: 64, name: "Golden Vein Chance", key: "golden_vein_chance", index: null, kind: "pct" },
+    { row: 65, name: "Golden Vein Multi", key: "golden_vein_multi", index: null, kind: "num" },
+    { row: 66, name: "Rainbow Vein Chance", key: "rainbow_vein_chance", index: null, kind: "pct" },
+    { row: 67, name: "Rainbow Vein Multi", key: "rainbow_vein_multi", index: null, kind: "num" },
+    { row: 68, name: "Gleaming Vein Chance", key: "gleaming_vein_chance", index: null, kind: "pct" },
+    { row: 69, name: "Gleaming Vein Multi", key: "gleaming_vein_multi", index: null, kind: "num" },
+    { row: 70, name: "Veins researched", key: "vein_researched_array", index: null, kind: "num" },
+    { row: 71, name: "Veins with 2x research", key: "vein_2x_spawn_array", index: null, kind: "num" },
+    { row: 72, name: "Bomb Damage", key: "bomb_damage", index: null, kind: "bombdmg" },
+    { row: 73, name: "Bomb Crit Chance", key: "bomb_crit_chance", index: null, kind: "pct" },
+    { row: 74, name: "Bomb Crit Multi", key: "bomb_crit_damage", index: null, kind: "num" },
+    { row: 76, name: "Bomb Super Crit Chance", key: "bomb_super_crit_chance", index: null, kind: "pct" },
+    { row: 77, name: "Bomb Super Crit Multi", key: "bomb_super_crit_damage", index: null, kind: "num" },
+    { row: 79, name: "Bomb Ultra Crit Chance", key: "bomb_ultra_crit_chance", index: null, kind: "pct" },
+    { row: 80, name: "Bomb Ultra Crit Multi", key: "bomb_ultra_crit_damage", index: null, kind: "num" },
+    { row: 82, name: "Bomb Omega Crit Chance", key: "bomb_omega_crit_chance", index: null, kind: "pct" },
+    { row: 83, name: "Bomb Omega Crit Multi", key: "bomb_omega_crit_damage", index: null, kind: "num" },
+    { row: 85, name: "Bomb Additional Multi", key: "bomb_additional_multiplier", index: null, kind: "num" }
+  ];
+
+  function importedRows(stats) {
+    var s = stats || {};
+    return IMPORT_ROWS.map(function (r) {
+      var raw = s[r.key];
+      if (r.index !== null && Array.isArray(raw)) raw = raw[r.index];
+      var used = null;
+      if (raw !== undefined && raw !== null) {
+        if (r.kind === "pct") used = isNum(raw) ? Math.min(raw / 100, 1) : 0;
+        else if (r.kind === "steak") used = isNum(raw) ? 0.001 * raw : 0;
+        else if (r.kind === "bombdmg") used = isNum(raw) ? raw * Math.min(1 + (isNum(s.bomb_additional_multiplier) ? s.bomb_additional_multiplier : 0), 99999) : 0;
+        else if (r.kind === "flag") used = isNum(raw) && raw > 0;
+        else if (r.kind === "bool") used = r.index !== null ? raw === 1 : truthy(raw);
+        else used = raw;
+      }
+      return { row: r.row, name: r.name, key: r.key, index: r.index, kind: r.kind, raw: raw === undefined ? null : raw, used: used };
+    });
+  }
+
   global.FloorData = {
     SHEET: SHEET,
     WORLD_LAST_FLOOR: WORLD_LAST_FLOOR,
@@ -895,6 +998,8 @@
     FLOORS: FLOORS,
     REQUIRED_KEYS: REQUIRED_KEYS,
     missingKeys: missingKeys,
+    IMPORT_ROWS: IMPORT_ROWS,
+    importedRows: importedRows,
     parseHealth: parseHealth,
     compareVersion: compareVersion,
     worldCap: worldCap,

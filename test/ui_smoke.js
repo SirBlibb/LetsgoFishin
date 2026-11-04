@@ -145,6 +145,10 @@ require("../bombs.js");
 require("../goals.js");
 require("../contractdata.js");
 require("../contracts.js");
+require("../floortables.js");
+require("../floordata.js");
+require("../floors.js");
+require("../sample_v2252.js");
 require("../app.js");
 
 var FM = global.FishModel;
@@ -794,6 +798,66 @@ check("contract route shows the contracts view", byId["view-contracts"].hidden =
 check("contract route hides the home view", byId["view-home"].hidden === true);
 check("contract route sets the page title",
   global.document.title === "Contract Point Planner - Obelisk Miner Tools");
+
+
+/* ---- best floor to farm ------------------------------------------- */
+global.window.location = { hash: "#/floors" };
+delete require.cache[require.resolve("../app.js")];
+require("../app.js");
+check("floors route shows the floors view", byId["view-floors"].hidden === false && byId["view-home"].hidden === true);
+check("floors route sets the page title", global.document.title === "Best Floor to Farm - Obelisk Miner Tools");
+check("floors tool renders without an account", global.FloorTool.getState().account === null &&
+  byId["floors-hero"].children.length === 1 && byId["floors-ranking"].children.length > 0);
+check("floors manual mode keeps the sample button visible", byId["floors-load-sample"].hidden === false);
+check("floors ore list has all 86 ores", countOptions(byId["floors-ore"]) === 86);
+check("floors vein grid has 21 tiles", byId["floors-vein-grid"].children.length === 21);
+
+fire(byId["btn-sample-new"], "click");
+var fs1 = global.FloorTool.getState();
+check("v2.2.52 sample loads into the floor tool", fs1.account === "v2.2.52" && fs1.env.jsonLoaded === true);
+check("floors: Tin on floor 1 with the Void Drone", fs1.result.ranking.length === 20 && fs1.result.ranking[0].floor === 1 && fs1.result.useVoid === true);
+check("floors hero names the floor", nodeText(byId["floors-hero"]).indexOf("Farm Tin on floor") >= 0 &&
+  nodeText(byId["floors-hero"]).indexOf("89.6%") >= 0);
+check("floors alerts list the modifier-floor reminder", nodeText(byId["floors-alerts"]).indexOf("negative ore modifiers") >= 0);
+check("floors sample button hides once an account is loaded", byId["floors-load-sample"].hidden === true);
+check("floors account status names the version", byId["floors-account-status"].textContent.indexOf("v2.2.52") >= 0);
+check("home floors badge shows the account", byId["floors-badge"].textContent === "Account loaded");
+check("floors imported-stats mirror lists the sheet's rows", byId["floors-imported"].children[0].children[0].children[1].children.length === 78);
+check("floors explorer lists all 132 floors", byId["floors-explorer"].children[1].children[0].children[0].children[2].children.length === 132);
+
+byId["floors-ore"].value = "Lapis";
+fire(byId["floors-ore"], "change");
+check("floors ore picker re-ranks", global.FloorTool.getState().ore === "Lapis" &&
+  global.FloorTool.getState().result.ore.name === "Lapis" && nodeText(byId["floors-alerts"]).indexOf("unable to oneshot") >= 0);
+
+byId["floors-ore"].value = "Tin";
+fire(byId["floors-ore"], "change");
+byId["floors-void-mode"].value = "off";
+fire(byId["floors-void-mode"], "change");
+check("floors Void Drone override off shows the 2-floor list", global.FloorTool.getState().result.ranking.length === 2 &&
+  global.FloorTool.getState().voidMode === "off" && global.FloorTool.getState().result.autoVoid === "Yes");
+byId["floors-void-mode"].value = "auto";
+fire(byId["floors-void-mode"], "change");
+
+byId["floors-mode-veins"].checked = true;
+fire(byId["floors-mode-veins"], "change");
+var fs2 = global.FloorTool.getState();
+check("floors vein mode ranks Stone Vein floors 1-8", fs2.mode === "veins" && fs2.result.kind === "vein" &&
+  fs2.result.groups[0].label === "1-8" && byId["floors-vein-picker"].hidden === false && byId["floors-ore-picker"].hidden === true);
+check("floors vein hero shows the group", nodeText(byId["floors-hero"]).indexOf("1-8") >= 0);
+
+var worldField = byId["floors-f-world"];
+worldField.value = "4";
+fire(worldField, "input");
+var fs3 = global.FloorTool.getState();
+check("floors stat edit becomes an override", fs3.overrides.worlds_unlocked === 4 && fs3.env.world === 4);
+var stored = JSON.parse(global.localStorage.getItem("obelisk-floors-v1"));
+check("floors saves its state", !!stored && stored.mode === "veins" && stored.overrides.worlds_unlocked === 4);
+
+fire(byId["btn-clear"], "click");
+var fs4 = global.FloorTool.getState();
+check("floors reset restores defaults", fs4.mode === "ore" && fs4.ore === "Tin" && fs4.account === null &&
+  Object.keys(fs4.overrides).length === 0 && fs4.voidMode === "auto");
 
 console.log("rows: " + rows.length + " | rankable: " + rankable + " | top: " + topName + " | badges: " + badges);
 console.log(fails === 0 ? "UI SMOKE OK" : fails + " FAILED");

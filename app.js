@@ -376,6 +376,19 @@
         : "No account yet - contract levels, caps, and OB gates can be entered by hand.";
     }
 
+    var floorsBadge = document.getElementById("floors-badge");
+    if (floorsBadge) {
+      floorsBadge.textContent = hasAccount ? "Account loaded" : "Manual entry";
+      floorsBadge.className = "badge" + (hasAccount ? " ok" : "");
+    }
+
+    var floorsNote = document.getElementById("floors-account-note");
+    if (floorsNote) {
+      floorsNote.textContent = hasAccount
+        ? "Uses your saved account" + versionSuffix + " golden / rainbow / void portal stats, drones and bomb."
+        : "No account yet - enter your multipliers by hand, or load an export for exact results.";
+    }
+
     // ContractTool owns #contracts-account-status so it can include the exact
     // OB level, cap increase, and cost reduction it is planning with.
   }
@@ -828,13 +841,19 @@
       if (window.BombTool) window.BombTool.refreshAccount();
       if (window.GoalTool) window.GoalTool.refreshAccount();
       if (window.ContractTool) window.ContractTool.refreshAccount();
+      if (window.FloorTool) window.FloorTool.refreshAccount();
       restoredSaved = true;
       clearHistory();
       rebuild();
       renderAccountSummary();
+      // Best Floor to Farm reads the raw stats; tell the player if their export lacks any it needs.
+      var floorGaps = window.FloorData ? window.FloorData.missingKeys(parsed.stats).length : 0;
       showReport("Imported " + source + " (" + parsed.version + "): " +
         res.applied.length + " fields filled, " + res.missing.length +
-        " missing (set manually inside the tool).", res.missing.length === 0);
+        " missing (set manually inside the tool)." +
+        (floorGaps ? " Best Floor to Farm: " + floorGaps + " stat" + (floorGaps === 1 ? "" : "s") +
+          " missing - re-export from the latest game version." : ""),
+        res.missing.length === 0 && floorGaps === 0);
     } catch (e) {
       showReport("Import failed: " + e.message, false);
     }
@@ -874,6 +893,14 @@
       ta.value = JSON.stringify(window.SAMPLE_EXPORT, null, 2);
       applyImport(window.SAMPLE_EXPORT, "sample export");
     });
+    var newSample = document.getElementById("btn-sample-new");
+    if (newSample) {
+      newSample.addEventListener("click", function () {
+        if (!window.SAMPLE_EXPORT_V2252) return;
+        ta.value = JSON.stringify(window.SAMPLE_EXPORT_V2252, null, 2);
+        applyImport(window.SAMPLE_EXPORT_V2252, "v2.2.52 sample export");
+      });
+    }
     document.getElementById("btn-clear").addEventListener("click", function () {
       state = FM.defaultInputs();
       importReport = null;
@@ -883,6 +910,7 @@
       if (window.BombTool) window.BombTool.refreshAccount();
       if (window.GoalTool) window.GoalTool.resetAll();
       if (window.ContractTool) window.ContractTool.resetAll();
+      if (window.FloorTool) window.FloorTool.resetAll();
       clearHistory();
       rebuild();
       forgetSavedState();
@@ -944,7 +972,7 @@
   /* home / tool views                                                */
   /* ---------------------------------------------------------------- */
 
-  var VIEW_IDS = { home: "view-home", fishing: "view-fishing", bombs: "view-bombs", goal: "view-goal", contracts: "view-contracts" };
+  var VIEW_IDS = { home: "view-home", fishing: "view-fishing", bombs: "view-bombs", goal: "view-goal", contracts: "view-contracts", floors: "view-floors" };
 
   function routeFromHash(hash) {
     var h = String(hash || "").replace(/^#\/?/, "").toLowerCase();
@@ -952,6 +980,8 @@
     if (h === "bombs" || h === "bomb" || h === "bomb-comparison" || h === "transmuter") return "bombs";
     if (h === "goal" || h === "goal-eta" || h === "eta" || h === "time-to-goal") return "goal";
     if (h === "contracts" || h === "contract" || h === "contract-planner" || h === "contract-points" || h === "cp") return "contracts";
+    if (h === "floors" || h === "floor" || h === "best-floor" || h === "best-ore" || h === "best-veins" ||
+        h === "farm" || h === "floors/ore" || h === "floors/veins") return "floors";
     return "home";
   }
 
@@ -985,7 +1015,9 @@
             ? "Goal ETA - Time to an Ore or Bar Target"
             : view === "contracts"
               ? "Contract Point Planner - Obelisk Miner Tools"
-              : "Obelisk Miner Tools";
+              : view === "floors"
+                ? "Best Floor to Farm - Obelisk Miner Tools"
+                : "Obelisk Miner Tools";
     }
   }
 
@@ -1027,6 +1059,7 @@
     if (window.BombTool) window.BombTool.init();
     if (window.GoalTool) window.GoalTool.init();
     if (window.ContractTool) window.ContractTool.init();
+    if (window.FloorTool) window.FloorTool.init();
 
     var note = document.getElementById("save-note");
     if (note) {

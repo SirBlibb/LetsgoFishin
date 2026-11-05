@@ -459,30 +459,45 @@
       return;
     }
 
+    // Collapse the one-level-at-a-time buys into one row per upgrade, in game order.
+    var byIndex = {};
+    plan.buys.forEach(function (buy) {
+      var row = byIndex[buy.index];
+      if (!row) {
+        row = byIndex[buy.index] = {
+          index: buy.index, world: buy.world, name: buy.name,
+          from: buy.level - 1, to: buy.level, cost: 0
+        };
+      }
+      row.to = buy.level;
+      row.cost += buy.cost;
+    });
+    var rows = Object.keys(byIndex).map(function (k) { return byIndex[k]; })
+      .sort(function (a, b) { return a.index - b.index; });
+
     var table = el("table", "results-table contracts-plan-table");
     var thead = el("thead");
     var hr = el("tr");
-    ["#", "Upgrade", "New level", "CP each", "Running total"].forEach(function (label) {
+    ["Upgrade", "Add levels", "Level", "CP"].forEach(function (label) {
       hr.appendChild(el("th", null, label));
     });
     thead.appendChild(hr);
     table.appendChild(thead);
 
     var tbody = el("tbody");
-    plan.buys.forEach(function (buy, i) {
+    rows.forEach(function (row) {
       var tr = el("tr");
-      tr.appendChild(el("td", "rank", String(i + 1)));
-      tr.appendChild(el("td", "name", "W" + buy.world + " " + buy.name));
-      tr.appendChild(el("td", "num", String(buy.level)));
-      tr.appendChild(el("td", "num", fmt(buy.cost)));
-      tr.appendChild(el("td", "num", fmt(buy.runningTotal)));
+      tr.appendChild(el("td", "name", "W" + row.world + " " + row.name));
+      tr.appendChild(el("td", "num", "+" + (row.to - row.from)));
+      tr.appendChild(el("td", "num", row.from + " \u2192 " + row.to));
+      tr.appendChild(el("td", "num", fmt(row.cost)));
       tbody.appendChild(tr);
     });
     table.appendChild(tbody);
     nodes.plan.appendChild(scrollWrap(table));
     nodes.plan.appendChild(el("p", "hint",
-      "Greedy spend: each step buys the highest-scoring affordable level. Costs rise and gains shrink, " +
-      "so the result is close to, but not guaranteed to be, the exact best plan."));
+      "Levels to add to each upgrade, listed in the game's upgrade order. The planner picks levels greedily " +
+      "(highest score per CP first), so the totals are close to, but not guaranteed to be, the exact best plan."));
   }
 
   function renderResult(plan) {

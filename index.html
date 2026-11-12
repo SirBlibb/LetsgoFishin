@@ -20,6 +20,7 @@
       <a href="#/goal" data-nav="goal">Goal ETA</a>
       <a href="#/contracts" data-nav="contracts">Contract planner</a>
       <a href="#/floors" data-nav="floors">Best floor</a>
+      <a href="#/tracker" data-nav="tracker">Tracker</a>
     </nav>
   </div>
 </header>
@@ -129,6 +130,21 @@
           <div class="tool-card-footer">
             <span id="floors-account-note" class="hint"></span>
             <a class="button-link" href="#/floors">Open tool</a>
+          </div>
+        </article>
+
+        <article class="tool-card">
+          <div class="tool-card-head">
+            <div>
+              <h3>Tracker</h3>
+              <p class="tool-kicker">Progression over time</p>
+            </div>
+            <span id="tracker-badge" class="badge">No snapshots</span>
+          </div>
+          <p>Every import becomes a dated snapshot. Chart the growth of any stat, or overlay several on one normalized graph.</p>
+          <div class="tool-card-footer">
+            <span id="tracker-account-note" class="hint">Every import adds a dated snapshot.</span>
+            <a class="button-link" href="#/tracker">Open tracker</a>
           </div>
         </article>
       </div>
@@ -697,6 +713,99 @@
       </details>
     </section>
   </div>
+
+  <!-- ============================ TRACKER =========================== -->
+  <div id="view-tracker" class="view" hidden>
+    <section class="panel tool-header-panel">
+      <a class="back-link" href="#/home">&larr; All tools</a>
+      <div class="tool-title-row">
+        <div>
+          <h2>Tracker <span class="title-sub">Progression over time</span></h2>
+          <p class="lead">Every successful import becomes a dated snapshot. Chart one stat's growth, or overlay several on a normalized graph.</p>
+        </div>
+      </div>
+      <div class="tool-account-bar">
+        <span id="tracker-status" class="hint">Loading snapshot history...</span>
+        <a class="ghost-link" href="#/home">Import a new export</a>
+      </div>
+    </section>
+
+    <section class="panel">
+      <h2>1. Progression graph</h2>
+      <div id="tracker-banner" class="tracker-banner" hidden></div>
+      <div id="tracker-chips" class="tracker-chips"></div>
+      <div class="tracker-controls">
+        <label class="field tracker-search-field">
+          <span class="field-label">Add a stat</span>
+          <input id="tracker-search" type="search" list="tracker-metric-list" placeholder="Search any exported stat...">
+          <datalist id="tracker-metric-list"></datalist>
+        </label>
+        <div class="field tracker-control-action">
+          <span class="field-label">&nbsp;</span>
+          <button id="tracker-add-metric" class="ghost" type="button">Add</button>
+        </div>
+        <label class="field">
+          <span class="field-label">Range</span>
+          <select id="tracker-range">
+            <option value="all">All snapshots</option>
+            <option value="30d">Last 30 days</option>
+            <option value="90d">Last 90 days</option>
+            <option value="365d">Last year</option>
+          </select>
+        </label>
+        <label class="field">
+          <span class="field-label">Scale</span>
+          <select id="tracker-scale">
+            <option value="auto">Auto (log when needed)</option>
+            <option value="linear">Linear</option>
+            <option value="log">Log</option>
+          </select>
+        </label>
+        <div class="field tracker-control-action">
+          <span class="field-label">&nbsp;</span>
+          <button id="tracker-clear-selection" class="ghost" type="button">Clear selection</button>
+        </div>
+      </div>
+      <p id="tracker-chart-note" class="hint"></p>
+      <div id="tracker-chart" class="tracker-chart"></div>
+      <div id="tracker-legend" class="tracker-legend"></div>
+    </section>
+
+    <section class="panel acc-panel">
+      <details class="acc" id="tracker-snapshots-details">
+        <summary>
+          <span class="acc-title">2. Snapshots</span>
+          <span class="acc-sub" id="tracker-snapshots-summary">No snapshots yet</span>
+          <span class="acc-icon" aria-hidden="true"></span>
+        </summary>
+        <div class="acc-body">
+          <div class="tracker-actions">
+            <button id="tracker-download" class="ghost" type="button">Download history</button>
+            <button id="tracker-import" class="ghost" type="button">Import history</button>
+            <input id="tracker-import-file" type="file" accept=".json,application/json" hidden>
+            <button id="tracker-clear" class="ghost" type="button">Clear history</button>
+          </div>
+          <div id="tracker-snapshots"></div>
+          <p class="hint">Snapshots are stored in this browser. Download the history file to keep a backup or move it to another device. Dates use the export's recorded clock (UTC). Editing a date changes where it sits on the chart, not its export identity. Clear history does not reset your active account.</p>
+        </div>
+      </details>
+    </section>
+
+    <section class="panel">
+      <details>
+        <summary>How the tracker works</summary>
+        <ul>
+          <li><strong>Recording:</strong> every successful paste, file pick, or drag-drop of an ExportStats JSON appends a snapshot. The built-in sample exports are not recorded, and importing the same export twice does not create a duplicate.</li>
+          <li><strong>Dates:</strong> the export's <code>time</code> is an Excel serial date, so it already contains the date and time the game made the file. Exports without a valid time fall back to the browser import time. You can correct a date in the snapshot table.</li>
+          <li><strong>Backfilling:</strong> an export older than the account currently loaded into the other tools is recorded here but does not replace that account. Use <strong>Use</strong> in the snapshot table if you deliberately want to load an older one.</li>
+          <li><strong>Graph:</strong> one stat is plotted in its own units. Selecting more than one stat switches to a normalized comparison where every series starts at 100%, because raw scales can differ by dozens of orders of magnitude. Hover a point to see the raw values.</li>
+          <li><strong>Storage:</strong> history lives in IndexedDB, separate from the active account in local storage. If IndexedDB is unavailable, the tracker falls back to local storage and keeps the newest 50 snapshots.</li>
+          <li><strong>Backups:</strong> <strong>Download history</strong> writes a JSON bundle. <strong>Import history</strong> merges it by export date; an existing export date is replaced only when the incoming record differs.</li>
+        </ul>
+        <p class="hint">A snapshot is a point-in-time copy of the exported stats, not a live save. Stats that the game changes constantly (ore, bars, gems) are not in ExportStats and are not tracked. The graph is a progress view, not a projection.</p>
+      </details>
+    </section>
+  </div>
 </main>
 
 <footer>
@@ -712,6 +821,7 @@
 <script src="fishcosts.js"></script>
 <script src="exportstats.js"></script>
 <script src="account.js"></script>
+<script src="trackerdata.js"></script>
 <script src="bombdata.js"></script>
 <script src="goaldata.js"></script>
 <script src="bombs.js"></script>
@@ -721,6 +831,7 @@
 <script src="floortables.js"></script>
 <script src="floordata.js"></script>
 <script src="floors.js"></script>
+<script src="tracker.js"></script>
 <script src="sample.js"></script>
 <script src="sample_v2252.js"></script>
 <script src="app.js"></script>

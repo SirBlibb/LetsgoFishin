@@ -107,6 +107,20 @@ function findContractRankRow(rows, name) {
   return hit;
 }
 
+function trackerSnapshotRowsOf() {
+  var root = byId["tracker-snapshots"];
+  var table = root.children[0].children[0]; // .table-scroll > table
+  return table.children[1].children;
+}
+
+function countTags(node, tag) {
+  var count = node && node.tagName === tag ? 1 : 0;
+  (node && node.children ? node.children : []).forEach(function (child) {
+    count += countTags(child, tag);
+  });
+  return count;
+}
+
 function dateInputValue(d) {
   function pad(n) { return String(n).padStart(2, "0"); }
   return d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate()) +
@@ -127,6 +141,7 @@ global.document = {
   readyState: "complete",
   title: "",
   createElement: makeNode,
+  createElementNS: function (ns, tag) { return makeNode(tag); },
   getElementById: function (id) { return byId[id] || (byId[id] = makeNode("div")); },
   addEventListener: function () {},
   body: makeNode("body")
@@ -138,6 +153,7 @@ require("../data.js");
 require("../fishcosts.js");
 require("../exportstats.js");
 require("../account.js");
+require("../trackerdata.js");
 require("../sample.js");
 require("../bombdata.js");
 require("../goaldata.js");
@@ -148,6 +164,7 @@ require("../contracts.js");
 require("../floortables.js");
 require("../floordata.js");
 require("../floors.js");
+require("../tracker.js");
 require("../sample_v2252.js");
 require("../app.js");
 
@@ -257,6 +274,37 @@ check("contract summary view is saved",
 fire(byId["contracts-view-ranking"], "click");
 check("contract ranking toggle switches back", global.ContractTool.getState().view === "ranking" &&
   byId["contracts-ranking"].hidden === false && byId["contracts-summary"].hidden === true);
+
+/* ---- tracker ------------------------------------------------------ */
+check("tracker view hidden by default", byId["view-tracker"].hidden === true);
+check("tracker modules are exposed", !!global.TrackerTool && !!global.TrackerData);
+var trackerState = global.TrackerTool.getState();
+check("tracker starts ready and empty", trackerState.ready === true && trackerState.snapshots === 0);
+check("tracker home badge starts empty", byId["tracker-badge"].textContent === "No snapshots");
+check("tracker chart starts empty", nodeText(byId["tracker-chart"]).indexOf("No snapshots") >= 0);
+check("tracker table starts empty", nodeText(byId["tracker-snapshots"]).indexOf("No snapshots") >= 0);
+check("tracker quick picks render", byId["tracker-chips"].children.length >= 10);
+
+var trackerParsed = ES.parseExport(window.SAMPLE_EXPORT);
+var trackerRes = ES.apply(trackerParsed.stats, FM.defaultInputs());
+global.TrackerTool.recordImport(trackerParsed, trackerRes, JSON.stringify(window.SAMPLE_EXPORT), "pasted JSON");
+check("tracker records an import", global.TrackerTool.getState().snapshots === 1);
+check("tracker home badge counts the import", byId["tracker-badge"].textContent === "1 snapshot");
+check("tracker table lists the import", trackerSnapshotRowsOf().length === 1);
+check("tracker table shows the OB level", trackerSnapshotRowsOf()[0].children[3].textContent === "71");
+check("tracker chart draws an svg", countTags(byId["tracker-chart"], "svg") === 1);
+
+var laterExport = JSON.parse(JSON.stringify(window.SAMPLE_EXPORT));
+laterExport.time = window.SAMPLE_EXPORT.time + 1;
+laterExport.stats.obelisk_level = 72;
+var laterParsed = ES.parseExport(laterExport);
+var laterRes = ES.apply(laterParsed.stats, FM.defaultInputs());
+global.TrackerTool.recordImport(laterParsed, laterRes, JSON.stringify(laterExport), "pasted JSON");
+check("tracker keeps two snapshots", global.TrackerTool.getState().snapshots === 2);
+check("tracker table is newest first", trackerSnapshotRowsOf()[0].children[3].textContent === "72");
+check("tracker chart draws a line", countTags(byId["tracker-chart"], "path") >= 1);
+check("tracker status counts the snapshots", byId["tracker-status"].textContent.indexOf("2 snapshots") >= 0);
+check("tracker summary counts the snapshots", byId["tracker-snapshots-summary"].textContent.indexOf("2 snapshots") >= 0);
 
 /* ---- contract planner interactions -------------------------------- */
 var contractSpare = byId["contracts-spare"];
@@ -813,6 +861,7 @@ check("floors ore list has all 86 ores", countOptions(byId["floors-ore"]) === 86
 check("floors vein grid has 21 tiles", byId["floors-vein-grid"].children.length === 21);
 
 fire(byId["btn-sample-new"], "click");
+check("built-in v2.2.52 sample is not recorded in the tracker", global.TrackerTool.getState().snapshots === 2);
 var fs1 = global.FloorTool.getState();
 check("v2.2.52 sample loads into the floor tool", fs1.account === "v2.2.52" && fs1.env.jsonLoaded === true);
 check("floors: Tin on floor 1 with the Void Drone", fs1.result.ranking.length === 20 && fs1.result.ranking[0].floor === 1 && fs1.result.useVoid === true);

@@ -7,6 +7,7 @@ A static website with a shared **account importer** plus tools for *Idle Obelisk
 - **Goal ETA** estimates how long an ore or bar target will take from a measured ore/hour rate, with progress, milestones, and the rate a deadline needs.
 - **Best Floor to Farm** ranks all 132 dungeon floors for any ore or vein, with Void Drone and bomb advice, warnings and a what-if stats editor.
 - **Contract Point Planner** ranks all 34 contract upgrades for a chosen mix of ore, veins, stars, bars, and damage, then turns spare CP (or a full respec) into an ordered spend plan.
+- **Tracker** records every imported ExportStats JSON as a dated snapshot and charts any stat's growth over time, with one-metric or normalized multi-stat graphs.
 
 The fishing optimizer is a faithful JavaScript port of the community Google Sheet **"Let's Go
 Fishing - V2.0.6"** (`Obefish` tab). You can type your stats in by hand, or import the game's
@@ -27,9 +28,12 @@ No build step, no server: open `index.html` in a browser.
 1. Open `index.html` in any modern browser (works from `file://`). The home page opens at `#/home`.
 2. Paste your ExportStats JSON on the home page and press **Apply JSON**, or click **Load sample**
    to try it with a real late-game export. You can also drag a `.json` file onto the page.
+   Every successful real import is also recorded as a dated snapshot in the **Tracker**; the
+   built-in sample exports are not recorded.
 3. Open a tool from the cards (or the header): **Let's Go Fishing** (`#/fishing`),
    **Bomb comparison** (`#/bombs`), **Goal ETA** (`#/goal`), **Contract planner**
-   (`#/contracts`), or **Best floor** (`#/floors`, `#/floors/veins`). A refresh or bookmark reopens the tool directly.
+   (`#/contracts`), **Best floor** (`#/floors`, `#/floors/veins`), or **Tracker**
+   (`#/tracker`). A refresh or bookmark reopens the tool directly.
 4. Anything the game did not record (a few bar levels, bundles, statues, etc.) stays at 0 and is
    shown as a manual field - fill those in inside the tool.
 5. In the fishing tool, read the **Ranking** table: it is sorted best-first. `Score/gem` is the
@@ -48,17 +52,24 @@ The home page (`#/home`) is the account hub:
   `obelisk-account-v1` local-storage key, separately from each tool's settings.
 - The account summary shows the game version, export timestamp, source, import time, and how many
   fields were mapped.
-- Each tool card shows whether it will use the saved account or fall back to manual entry.
+- Each analysis tool card shows whether it will use the saved account or fall back to manual entry.
+  The Tracker card instead shows how many snapshots are recorded.
 - **Reset** clears the saved account, the fishing tool's settings, the bomb tool's current values
-  and floor/portal inputs, the goal tool's targets and measured rate, and the contract planner's
-  budget, weights, and manual levels.
+  and floor/portal inputs, the goal tool's targets and measured rate, the contract planner's
+  budget, weights, and manual levels, and the Best Floor tool's saved mode and what-if stats. It
+  does **not** clear the Tracker's snapshot history; use **Clear history** on the Tracker page for
+  that.
 - Tools read the account through `window.AccountStore` (`account.js`), so future tools can be added
   without changing the import flow.
 
 Tool settings are saved automatically: the fishing tool under `lgf-optimizer-state-v1`, the goal
-tool under `obelisk-goal-v1`, the contract planner under `obelisk-contracts-v1`, and the bomb tool
-under `obelisk-bombs-v1`. The bomb tool keeps its mode, level, floor, ore and portal inputs, and keeps
-stats only when you edited them by hand; untouched stats are re-read from the account each time.
+tool under `obelisk-goal-v1`, the contract planner under `obelisk-contracts-v1`, the bomb tool
+under `obelisk-bombs-v1`, the Best Floor tool under `obelisk-floors-v1`, and the Tracker's
+pinned/selected stats under `obelisk-tracker-prefs-v1`. The snapshot history itself lives in
+IndexedDB, not local storage.
+
+The bomb tool keeps its mode, level, floor, ore and portal inputs, and keeps stats only when you
+edited them by hand; untouched stats are re-read from the account each time.
 
 ## How to get ExportStats
 
@@ -479,11 +490,84 @@ Without an account the planner uses OB 0, cap +0, and 0% cost reduction.
 - Costs, caps, and OB gates are hard-coded for v2.2.23. If the game adds levels or upgrades, extend
   `UPGRADES`, `MAX_LEVELS`, and the cost tables in `contractdata.js`.
 
+## Tracker (`#/tracker`)
+
+The Tracker turns the shared account import into a progress history. Every successful paste,
+file pick, or drag-drop of an ExportStats JSON appends a snapshot. The built-in **Load sample**
+and **Load v2.2.52 sample** buttons are treated as demos and are not recorded. Importing the same
+export twice does not create a duplicate: snapshots are keyed by the export's own `time`, and an
+identical fingerprint is skipped. If the same export date appears again with different stats, the
+new record replaces the old one.
+
+### Snapshot dates
+
+The export's `time` is an Excel serial date (days since 1899-12-30), so the file already contains
+the date and time the game exported it. The tracker displays that wall-clock time (in UTC, so the
+serial's digits stay stable); it does not depend on when you paste the file. If an export has no
+usable time, the browser import time is used instead. A date can be corrected from the snapshot
+table; the edit moves the point on the chart but keeps the snapshot's export identity.
+
+### Active account vs. history
+
+The snapshot history is independent of the account currently loaded into the tools. An export
+older than the active account is recorded in the Tracker but does **not** replace the account, so
+backfilling old exports cannot accidentally downgrade the fishing, bomb, goal, or contract tools.
+A newer import still updates the active account as before. **Use** in the snapshot table loads a
+chosen snapshot into every tool deliberately, and **Clear history** removes the snapshots without
+touching the active account. The home page **Reset** button also leaves the history alone.
+
+If the history is empty and this browser already has a saved account, the first visit seeds one
+snapshot from that account (marked as seeded; a built-in sample account is skipped). Pasting the
+same export again does not duplicate it.
+
+### Graph
+
+- **One stat** is plotted in its own units. A log axis is used automatically when a single series
+  spans about 100x or more, and **Scale** lets you force linear or log.
+- **Several stats** switch to a normalized overlay: every series starts at 100% at its first
+  non-zero point, so multipliers, levels, and damage can share one chart. Hovering shows the raw
+  values.
+- The quick-pick chips default to OB level, current floor, worlds unlocked, black hole level,
+  all-floor multiplier, ore sell price multiplier, game speed, pickaxe damage, bomb damage, fishing
+  income multiplier, total fishing upgrade levels, and total contract levels. Search the full
+  export field list to add any other numeric stat; `derived:` metrics sum the obvious progress
+  arrays (contracts, fishing upgrades and enhancements, cards, pets, skill-tree nodes, idols).
+- **Range** filters to the last 30, 90, or 365 days relative to the newest snapshot, not today's
+  date. With only one snapshot in range the chart shows a single point.
+
+Pinned metrics and the last selection/range/scale are saved under
+`obelisk-tracker-prefs-v1`. Unpinning a selected metric removes it from the chart; the search box
+can add it back.
+
+### Storage and backups
+
+- Snapshot history is stored in the `obelisk-tracker` IndexedDB database (`snapshots` store),
+  separately from the active account in `obelisk-account-v1`. There is no automatic snapshot cap
+  in IndexedDB.
+- If IndexedDB is unavailable (some `file://` setups, private modes, or a blocked database), the
+  tracker falls back to local storage and keeps the newest 50 snapshots, with a visible warning.
+  If even local storage is unavailable, snapshots last for the session only.
+- **Download history** writes a portable JSON bundle containing the raw export and its metadata.
+  **Import history** merges a bundle by export date; an existing date is replaced only when the
+  incoming record differs and is at least as new. **Clear history** asks for confirmation and does
+  not affect the active account.
+
+### Caveats
+
+- A snapshot is a point-in-time copy of the stats the game exports. Balances the game does not put
+  in ExportStats (current ore, bars, gems) and observations such as ore/hour are not tracked.
+- The normalized multi-stat view is for comparing growth rates; it does not imply the stats share
+  units or that one is more important than another.
+- Export times are wall-clock values from the game's serializer. Timezone or clock changes can
+  shift when a snapshot appears; correct the date in the snapshot table if needed.
+- IndexedDB can be cleared by the browser, a private session, or a site-data reset. Download a
+  history file if the record matters.
+
 ## Files
 
 | File | Purpose |
 | --- | --- |
-| `index.html` | Home page + fishing, bomb, goal, and contract tool shells |
+| `index.html` | Home page + fishing, bomb, goal, contract, Best Floor, and Tracker tool shells |
 | `styles.css` | Styling |
 | `model.js` | The ported fishing model (`window.FishModel`) |
 | `data.js` | Field labels/limits (`window.UI_SPEC`) |
@@ -501,6 +585,8 @@ Without an account the planner uses OB 0, cap +0, and 0% cost reduction.
 | `floors.js` | Best Floor to Farm UI (`window.FloorTool`) |
 | `img/veins/` | The 21 vein pictures from the sheet |
 | `tools/extract_floor_sheet.py` | Dev script: sheet .xlsx -> tables, fixtures, images |
+| `trackerdata.js` | Export timestamps, snapshots, metric catalogue, chart maths, and IndexedDB/local history (`window.TrackerData`) |
+| `tracker.js` | Tracker UI, graph, snapshot table, and history download/import (`window.TrackerTool`) |
 | `app.js` | View routing + fishing tool UI wiring + account import |
 | `sample.js` | A sample ExportStats export (`window.SAMPLE_EXPORT`, game v2.2.20) |
 | `sample_v2252.js` | A v2.2.52 export (`window.SAMPLE_EXPORT_V2252`), loaded by **Load v2.2.52 sample** |
@@ -511,6 +597,7 @@ Without an account the planner uses OB 0, cap +0, and 0% cost reduction.
 | `test/validate_goal.js` | Goal ETA formulas, bar conversion, and page wiring |
 | `test/validate_contracts.js` | Contract costs, goals, ranking, plans, respec, and page wiring |
 | `test/validate_floors.js` | Best Floor maths vs the sheet's cached values (default and loaded), manual mode, import, and page wiring |
+| `test/validate_tracker.js` | Tracker timestamps, snapshot merging, chart series, and storage |
 | `test/ui_smoke.js` | Headless UI wiring smoke test (all tools) |
 
 ## Running the tests
@@ -523,12 +610,14 @@ node test/validate_bombs.js
 node test/validate_goal.js
 node test/validate_contracts.js
 node test/validate_floors.js
+node test/validate_tracker.js
 node test/ui_smoke.js
 ```
 
 `validate.js` checks the ported model against the spreadsheet's cached values in the default
 (empty) state; the others exercise the import mapping, the fish cost/ranking data, the bomb
-comparison, the goal ETA maths, the contract planner's costs/plans/respec, and the UI wiring.
+comparison, the goal ETA maths, the Best Floor maths, the contract planner's costs/plans/respec,
+the Tracker's timestamps/series/storage, and the UI wiring.
 
 ## Disclaimer
 

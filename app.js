@@ -208,6 +208,10 @@
 
   function fmtExportTime(v) {
     if (v === null || v === undefined || v === "") return "not provided";
+    var TD = window.TrackerData;
+    if (TD && typeof TD.formatExportDate === "function") {
+      return TD.formatExportDate(v);
+    }
     if (typeof v === "string") return v;
     if (typeof v === "number" && isFinite(v)) {
       return v.toLocaleString("en-US", { maximumFractionDigits: 2 });
@@ -819,11 +823,50 @@
     box.className = "import-status " + (ok ? "ok" : "warn");
   }
 
+  function recordTracker(parsed, res, rawText, source, done) {
+    if (!window.TrackerTool || typeof window.TrackerTool.recordImport !== "function") return;
+    window.TrackerTool.recordImport(parsed, res, rawText, source).then(function (result) {
+      if (!result || !done) return;
+      if (result.error) done("Tracker warning: " + result.error, false);
+      else if (result.skipped && result.reason === "sample") done("", true);
+      else if (result.skipped) done("Already in the Tracker.", true);
+      else if (result.replaced) done("Tracker snapshot updated.", true);
+      else if (result.added) done("Tracker snapshot saved.", true);
+    }).catch(function (error) {
+      if (done) {
+        done("Tracker warning: " + (error && error.message ? error.message : error), false);
+      }
+    });
+  }
+
   function applyImport(raw, source) {
     try {
       var rawText = typeof raw === "string" ? raw : JSON.stringify(raw);
       var parsed = ES.parseExport(rawText);
+      var isSample = window.TrackerData && typeof window.TrackerData.isSampleSource === "function"
+        ? window.TrackerData.isSampleSource(source)
+        : (source === "sample export" || source === "v2.2.52 sample export");
+      var isBackfill = false;
+      if (!isSample && window.TrackerData) {
+        if (typeof window.TrackerData.exportTimeMs === "function" &&
+            typeof window.TrackerData.isOlderThanActive === "function") {
+          isBackfill = window.TrackerData.isOlderThanActive(
+            window.TrackerData.exportTimeMs(parsed.time), accountRecord);
+        }
+      }
+
       var res = ES.apply(parsed.stats, FM.defaultInputs());
+
+      if (isBackfill) {
+        var backfillMessage = "Imported " + source + " (" + (parsed.version || "?") +
+          "): this export is older than the active account, so it was recorded in the Tracker only.";
+        showReport(backfillMessage, true);
+        recordTracker(parsed, res, rawText, source, function (suffix, ok) {
+          showReport(backfillMessage + (suffix ? " " + suffix : ""), ok);
+        });
+        return;
+      }
+
       var hideLocked = !!state.hideLocked;
       state = res.inputs;
       state.hideLocked = hideLocked;
@@ -842,20 +885,64 @@
       if (window.GoalTool) window.GoalTool.refreshAccount();
       if (window.ContractTool) window.ContractTool.refreshAccount();
       if (window.FloorTool) window.FloorTool.refreshAccount();
+      if (window.TrackerTool) window.TrackerTool.refreshAccount();
       restoredSaved = true;
       clearHistory();
       rebuild();
       renderAccountSummary();
+
       // Best Floor to Farm reads the raw stats; tell the player if their export lacks any it needs.
       var floorGaps = window.FloorData ? window.FloorData.missingKeys(parsed.stats).length : 0;
-      showReport("Imported " + source + " (" + parsed.version + "): " +
+      var message = "Imported " + source + " (" + (parsed.version || "?") + "): " +
         res.applied.length + " fields filled, " + res.missing.length +
         " missing (set manually inside the tool)." +
         (floorGaps ? " Best Floor to Farm: " + floorGaps + " stat" + (floorGaps === 1 ? "" : "s") +
-          " missing - re-export from the latest game version." : ""),
-        res.missing.length === 0 && floorGaps === 0);
+          " missing - re-export from the latest game version." : "");
+      var messageOk = res.missing.length === 0 && floorGaps === 0;
+      showReport(message, messageOk);
+      if (!isSample) {
+        recordTracker(parsed, res, rawText, source, function (suffix, ok) {
+          showReport(message + (suffix ? " " + suffix : ""), messageOk && ok);
+        });
+      }
     } catch (e) {
       showReport("Import failed: " + e.message, false);
+    }
+  }
+
+  // Load an existing snapshot into the active account and every tool.
+  function loadAccountRecord(record) {
+    if (!record || typeof record.raw !== "string") return false;
+    try {
+      var parsed = ES.parseExport(record.raw);
+      var res = ES.apply(parsed.stats, FM.defaultInputs());
+      var hideLocked = !!state.hideLocked;
+      state = res.inputs;
+      state.hideLocked = hideLocked;
+      importReport = res;
+      accountRecord = {
+        raw: record.raw,
+        source: record.source || "tracker snapshot",
+        version: record.version || parsed.version || "?",
+        exportedAt: record.exportedAt !== undefined && record.exportedAt !== null
+          ? record.exportedAt
+          : parsed.time,
+        importedAt: new Date().toISOString(),
+        applied: typeof record.applied === "number" ? record.applied : res.applied.length,
+        missing: typeof record.missing === "number" ? record.missing : res.missing.length
+      };
+      if (ACCOUNT) ACCOUNT.save(accountRecord);
+      if (window.BombTool) window.BombTool.refreshAccount();
+      if (window.GoalTool) window.GoalTool.refreshAccount();
+      if (window.ContractTool) window.ContractTool.refreshAccount();
+      if (window.TrackerTool) window.TrackerTool.refreshAccount();
+      restoredSaved = true;
+      clearHistory();
+      rebuild();
+      renderAccountSummary();
+      return true;
+    } catch (e) {
+      return false;
     }
   }
 
@@ -911,12 +998,13 @@
       if (window.GoalTool) window.GoalTool.resetAll();
       if (window.ContractTool) window.ContractTool.resetAll();
       if (window.FloorTool) window.FloorTool.resetAll();
+      if (window.TrackerTool) window.TrackerTool.refreshAccount();
       clearHistory();
       rebuild();
       forgetSavedState();
       ta.value = "";
       renderAccountSummary();
-      showReport("Reset to defaults and cleared the saved account and tool details.", true);
+      showReport("Reset to defaults and cleared the saved account and tool details. Tracker history was kept.", true);
     });
 
     var file = document.getElementById("import-file");
@@ -972,7 +1060,7 @@
   /* home / tool views                                                */
   /* ---------------------------------------------------------------- */
 
-  var VIEW_IDS = { home: "view-home", fishing: "view-fishing", bombs: "view-bombs", goal: "view-goal", contracts: "view-contracts", floors: "view-floors" };
+  var VIEW_IDS = { home: "view-home", fishing: "view-fishing", bombs: "view-bombs", goal: "view-goal", contracts: "view-contracts", floors: "view-floors", tracker: "view-tracker" };
 
   function routeFromHash(hash) {
     var h = String(hash || "").replace(/^#\/?/, "").toLowerCase();
@@ -982,6 +1070,7 @@
     if (h === "contracts" || h === "contract" || h === "contract-planner" || h === "contract-points" || h === "cp") return "contracts";
     if (h === "floors" || h === "floor" || h === "best-floor" || h === "best-ore" || h === "best-veins" ||
         h === "farm" || h === "floors/ore" || h === "floors/veins") return "floors";
+    if (h === "tracker" || h === "progress" || h === "growth" || h === "history") return "tracker";
     return "home";
   }
 
@@ -1017,7 +1106,9 @@
               ? "Contract Point Planner - Obelisk Miner Tools"
               : view === "floors"
                 ? "Best Floor to Farm - Obelisk Miner Tools"
-                : "Obelisk Miner Tools";
+                : view === "tracker"
+                  ? "Tracker - Progression Over Time"
+                  : "Obelisk Miner Tools";
     }
   }
 
@@ -1060,6 +1151,7 @@
     if (window.GoalTool) window.GoalTool.init();
     if (window.ContractTool) window.ContractTool.init();
     if (window.FloorTool) window.FloorTool.init();
+    if (window.TrackerTool) window.TrackerTool.init();
 
     var note = document.getElementById("save-note");
     if (note) {
@@ -1076,6 +1168,10 @@
       ? "Restored your saved fishing details from this browser. Open a tool below, or import a fresh JSON."
       : "Paste your ExportStats JSON above, or open a tool and enter values manually.", true);
   }
+
+  window.ObeliskApp = {
+    loadAccountRecord: loadAccountRecord
+  };
 
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", init);
   else init();

@@ -203,5 +203,17 @@ check("manual OB 0 warns about locked damage contracts",
     close(gold.scenario.bomb.base / base.scenario.bomb.base, 3));
 })();
 
+
+// Obelisk armour formula and check.
+(function () {
+  check("OB62 armour is about 6.09e29", Math.abs(DD.obeliskArmor(62) / 6.094e29 - 1) < 1e-3);
+  check("OB1 is half of 10", DD.obeliskArmor(1) === 5);
+  check("OB60 armour", close(DD.obeliskArmor(60), 10 * Math.pow(2.8, 59)));
+  var r = DD.computeDamage(stats, { items: DD.defaultItems(true), contractMode: "maxed", contractsCompleted: 100, targetOb: 62 });
+  check("armour check passes at OB62 when maxed", r.armor.scenario.max.pass && r.armor.level === 62);
+  var c = DD.computeDamage(stats, { contractMode: "current", targetOb: 62 });
+  check("armour check fails at OB62 for current setup", !c.armor.current.max.pass);
+})();
+
 console.log(fails === 0 ? "DAMAGE OK" : fails + " FAILED");
 process.exitCode = fails === 0 ? 0 : 1;

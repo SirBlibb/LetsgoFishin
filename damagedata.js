@@ -284,6 +284,26 @@
     };
   }
 
+  // Obelisk base armour.  OB1..OB60: round(10 * 2.8^(L-1)); above that the
+  // growth becomes x9.5 per level.  OB1 is shown at half its formula value.
+  function obeliskArmor(level) {
+    var l = Math.floor(asNumber(level, 0));
+    if (l < 1) return 0;
+    if (l <= 60) return Math.round(10 * Math.pow(2.8, l - 1) * (l === 1 ? 0.5 : 1));
+    return Math.round(10 * Math.pow(2.8, 60) * Math.pow(9.5, l - 60));
+  }
+
+  function armorCheck(level, hit) {
+    var armor = obeliskArmor(level);
+    if (!(armor > 0)) return null;
+    var out = { level: Math.floor(asNumber(level, 0)), armor: armor };
+    ["max", "expected"].forEach(function (k) {
+      var v = hit[k];
+      out[k] = { hit: v, ratio: v / armor, pass: v > armor };
+    });
+    return out;
+  }
+
   function ratio(a, b) {
     if (!(b > 0) || !isFinite(a) || !isFinite(b)) return null;
     return a / b;
@@ -429,7 +449,16 @@
       }
     }
 
+    var targetOb = Math.floor(asNumber(opts.targetOb, 0)) > 0
+      ? Math.floor(asNumber(opts.targetOb, 0))
+      : Math.floor(asNumber(source.obelisk_level, 0));
+
     return {
+      armor: {
+        level: targetOb,
+        current: armorCheck(targetOb, current.pickaxe.hit),
+        scenario: armorCheck(targetOb, selected.pickaxe.hit)
+      },
       stats: summary,
       activeItems: activeItems,
       items: selectedItems,
@@ -459,6 +488,7 @@
     ITEMS: ITEMS,
     ITEM_BY_ID: ITEM_BY_ID,
     DAMAGE_CONTRACT_INDICES: DAMAGE_CONTRACT_INDICES,
+    obeliskArmor: obeliskArmor,
     defaultStats: defaultStats,
     defaultItems: defaultItems,
     activeItemsFromStats: activeItemsFromStats,

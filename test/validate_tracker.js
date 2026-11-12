@@ -19,7 +19,9 @@ var sample = JSON.parse(json);
 var parsedDate = TD.parseExportTime(sample.time);
 check("export time parses", !!parsedDate);
 check("export time is the recorded wall clock",
-  parsedDate.toISOString().slice(0, 16) === "2026-09-11T17:53");
+  parsedDate.getFullYear() === 2026 && parsedDate.getMonth() === 8 &&
+  parsedDate.getDate() === 11 && parsedDate.getHours() === 17 &&
+  parsedDate.getMinutes() === 53);
 check("export date formats for the UI",
   TD.formatExportDate(sample.time).indexOf("Sep 11, 2026") >= 0);
 check("bad export time is rejected", TD.parseExportTime("not a date") === null);
@@ -85,6 +87,16 @@ var olderConflict = TD.makeSnapshot(
 var mergedOlder = TD.mergeSnapshots([snapC], [olderConflict]);
 check("an older conflicting backup does not overwrite",
   mergedOlder.snapshots[0].stats.obelisk_level === 99 && mergedOlder.skipped === 1);
+
+var editedA = TD.normalizeSnapshot(Object.assign({}, snapA, {
+  timeMs: TD.exportTimeMs(sample.time) - 12345,
+  timeEdited: true,
+  timeSource: "manual"
+}));
+var mergedEdited = TD.mergeSnapshots([editedA], [snapC]);
+check("a replacement keeps a manual date edit",
+  mergedEdited.snapshots[0].timeEdited === true &&
+  mergedEdited.snapshots[0].timeMs === TD.exportTimeMs(sample.time) - 12345);
 
 var snapD = TD.makeSnapshot(
   { version: "v2.2.21", time: sample.time + 1, stats: changedStats },
@@ -168,6 +180,27 @@ check("multiple series are normalized", multi.normalize === true && multi.series
 check("normalized series start at 100", multi.series[0].points[0].y === 100 && multi.series[1].points[0].y === 100);
 check("normalized series keep raw values", multi.series[0].points[2].raw === 75);
 
+var zeroStart = TD.chartModel([
+  TD.makeSnapshot({ version: "v", time: sample.time, stats: { a: 0, b: 1 } },
+    { importedAt: "2026-01-01T00:00:00.000Z" }),
+  TD.makeSnapshot({ version: "v", time: sample.time + 1, stats: { a: 5, b: 2 } },
+    { importedAt: "2026-01-02T00:00:00.000Z" }),
+  TD.makeSnapshot({ version: "v", time: sample.time + 2, stats: { a: 10, b: 3 } },
+    { importedAt: "2026-01-03T00:00:00.000Z" })
+], ["a", "b"], { range: "all", scale: "linear" });
+var seriesA = zeroStart.series[0];
+check("normalization starts at the first positive value",
+  seriesA.points.length === 2 && seriesA.points[0].y === 100 && seriesA.points[0].raw === 5);
+
+var wideNormalized = TD.chartModel([
+  TD.makeSnapshot({ version: "v", time: sample.time, stats: { a: 1, b: 1 } },
+    { importedAt: "2026-01-01T00:00:00.000Z" }),
+  TD.makeSnapshot({ version: "v", time: sample.time + 1, stats: { a: 1000, b: 2 } },
+    { importedAt: "2026-01-02T00:00:00.000Z" })
+], ["a", "b"], { range: "all", scale: "auto" });
+check("normalized comparisons can use a log scale",
+  wideNormalized.normalize === true && wideNormalized.scale === "log");
+
 var logModel = TD.chartModel(seriesSnaps, ["bomb_damage"], { range: "all", scale: "auto" });
 check("auto scale uses log for a wide range", logModel.scale === "log");
 var linearModel = TD.chartModel(seriesSnaps, ["bomb_damage"], { range: "all", scale: "linear" });
@@ -188,6 +221,9 @@ var logTicks = TD.logTicks(1, 1000);
 check("log ticks cover the powers", logTicks.indexOf(1) >= 0 && logTicks.indexOf(10) >= 0 &&
   logTicks.indexOf(100) >= 0 && logTicks.indexOf(1000) >= 0);
 check("large numbers use suffixes", TD.formatValue(1500) === "1.50k" && TD.formatValue(1500000) === "1.50m");
+check("boundary values round to the next suffix",
+  TD.formatValue(999999) === "1.00m" && TD.formatValue(999.9) === "1.00k");
+check("normalized indices stay percentages", TD.formatIndex(1500) === "1,500%");
 check("zero formats cleanly", TD.formatValue(0) === "0");
 check("bytes format for the table", TD.formatSize(2048) === "2.0 KB");
 
@@ -259,6 +295,20 @@ function localSnapshot(time, level) {
   check("fallback merge adds new history", merged.added === 2 && store.getCached().length === 3);
   var mergedAgain = await store.merge([localSnapshot(46102, 3)]);
   check("fallback merge skips unchanged history", mergedAgain.skipped === 1 && store.getCached().length === 3);
+
+  var corruptMem = (function () {
+    var mem = {
+      getItem: function (k) { return k === TD.FALLBACK_KEY ? "{not valid json" : null; },
+      setItem: function (k, v) { mem[k] = String(v); },
+      removeItem: function (k) { delete mem[k]; }
+    };
+    return mem;
+  })();
+  var corruptStore = TD.createStore({ localStorage: corruptMem, indexedDB: null });
+  var corruptLoaded = corruptStore.loadSync();
+  check("corrupt fallback data is backed up",
+    !!corruptMem[TD.FALLBACK_KEY + "-corrupt"] &&
+    corruptLoaded.warning.indexOf("could not be read") >= 0);
 
   console.log((fails === 0 ? "ALL OK" : fails + " FAILED") + " | snapshots=" + store.getCached().length);
   process.exitCode = fails === 0 ? 0 : 1;

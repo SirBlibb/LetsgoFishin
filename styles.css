@@ -9,6 +9,14 @@
   --accent2: #3fb950;
   --warn: #d29922;
   --danger: #f85149;
+  --chart-1: #2f81f7;
+  --chart-2: #3fb950;
+  --chart-3: #d29922;
+  --chart-4: #f85149;
+  --chart-5: #a371f7;
+  --chart-6: #39c5cf;
+  --chart-7: #db6d28;
+  --chart-8: #e3b341;
 }
 
 * { box-sizing: border-box; }
@@ -896,7 +904,7 @@ td.num { white-space: nowrap; }
 .tracker-chip-pin:hover { background: rgba(248,81,73,.1); color: var(--danger); filter: none; }
 .tracker-controls {
   display: grid;
-  grid-template-columns: minmax(220px, 1fr) auto 155px 180px auto;
+  grid-template-columns: minmax(220px, 1fr) auto 185px 200px auto;
   gap: 10px;
   align-items: end;
 }
@@ -927,6 +935,14 @@ td.num { white-space: nowrap; }
 .tracker-legend { display: flex; flex-wrap: wrap; gap: 8px 16px; margin-top: 10px; }
 .tracker-legend-item { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); font-size: 12px; }
 .tracker-legend-swatch { width: 10px; height: 10px; border-radius: 50%; }
+#tracker-snapshots:focus { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 4px; }
+.tracker-data-details { margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--line); }
+.tracker-data-details > summary { color: var(--accent); font-size: 13px; font-weight: 600; }
+.tracker-data-details[open] > summary { margin-bottom: 10px; }
+.tracker-data-table { font-size: 12px; }
+.tracker-data-table th { white-space: nowrap; }
+.tracker-data-table td { font-variant-numeric: tabular-nums; }
+.tracker-empty .ghost-link { margin-top: 4px; }
 .tracker-empty {
   display: grid;
   place-items: center;
@@ -974,7 +990,7 @@ td.num { white-space: nowrap; }
     font-size: 12px;
     line-height: 1.2;
   }
-  .site-nav a:last-child { grid-column: auto; }
+  .site-nav a:last-child { grid-column: 1 / -1; }
   h1 { font-size: 20px; }
   h1 .sub { display: block; font-size: 15px; margin-top: 2px; }
   main { padding: 10px; gap: 12px; }
@@ -1034,7 +1050,10 @@ td.num { white-space: nowrap; }
   .tracker-actions button { flex: 1 1 0; }
   .tracker-edit-date { width: 100%; }
   .tracker-edit-date input { width: 100%; }
-  .tracker-snapshots-table td.tracker-source { max-width: 120px; }
+  .tracker-snapshots-table th:nth-child(2),
+  .tracker-snapshots-table td:nth-child(2),
+  .tracker-snapshots-table th:nth-child(3),
+  .tracker-snapshots-table td:nth-child(3) { display: none; }
 }
 
 @media (max-width: 380px) {

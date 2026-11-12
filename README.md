@@ -502,10 +502,11 @@ new record replaces the old one.
 ### Snapshot dates
 
 The export's `time` is an Excel serial date (days since 1899-12-30), so the file already contains
-the date and time the game exported it. The tracker displays that wall-clock time (in UTC, so the
-serial's digits stay stable); it does not depend on when you paste the file. If an export has no
-usable time, the browser import time is used instead. A date can be corrected from the snapshot
-table; the edit moves the point on the chart but keeps the snapshot's export identity.
+the date and time the game exported it. The tracker reads those digits in your local timezone, so
+the wall-clock time stays stable and can be compared with the true `importedAt` instant. It does
+not depend on when you paste the file. If an export has no usable time, the browser import time is
+used instead. A date can be corrected from the snapshot table; the edit moves the point on the
+chart but keeps the snapshot's export identity.
 
 ### Active account vs. history
 
@@ -513,8 +514,9 @@ The snapshot history is independent of the account currently loaded into the too
 older than the active account is recorded in the Tracker but does **not** replace the account, so
 backfilling old exports cannot accidentally downgrade the fishing, bomb, goal, or contract tools.
 A newer import still updates the active account as before. **Use** in the snapshot table loads a
-chosen snapshot into every tool deliberately, and **Clear history** removes the snapshots without
-touching the active account. The home page **Reset** button also leaves the history alone.
+chosen snapshot into every tool deliberately (after a confirmation, because manual edits in the
+tools will be replaced), and **Clear history** removes the snapshots without touching the active
+account. The home page **Reset** button also leaves the history alone.
 
 If the history is empty and this browser already has a saved account, the first visit seeds one
 snapshot from that account (marked as seeded; a built-in sample account is skipped). Pasting the
@@ -522,11 +524,13 @@ same export again does not duplicate it.
 
 ### Graph
 
-- **One stat** is plotted in its own units. A log axis is used automatically when a single series
+- **One stat** is plotted in its own units. A log axis is used automatically when the plotted range
   spans about 100x or more, and **Scale** lets you force linear or log.
 - **Several stats** switch to a normalized overlay: every series starts at 100% at its first
-  non-zero point, so multipliers, levels, and damage can share one chart. Hovering shows the raw
-  values.
+  positive value, so multipliers, levels, and damage can share one chart. Leading zeros are skipped
+  rather than plotted as 0%. Hovering shows the raw values, and the **Chart data** table gives touch
+  and keyboard users the same values.
+- Up to eight stats can be compared at once; the palette has one distinct colour per series.
 - The quick-pick chips default to OB level, current floor, worlds unlocked, black hole level,
   all-floor multiplier, ore sell price multiplier, game speed, pickaxe damage, bomb damage, fishing
   income multiplier, total fishing upgrade levels, and total contract levels. Search the full
@@ -546,7 +550,9 @@ can add it back.
   in IndexedDB.
 - If IndexedDB is unavailable (some `file://` setups, private modes, or a blocked database), the
   tracker falls back to local storage and keeps the newest 50 snapshots, with a visible warning.
-  If even local storage is unavailable, snapshots last for the session only.
+  If even local storage is unavailable, snapshots last for the session only. Unreadable fallback
+  data is backed up under `obelisk-tracker-fallback-v1-corrupt` instead of being silently
+  overwritten.
 - **Download history** writes a portable JSON bundle containing the raw export and its metadata.
   **Import history** merges a bundle by export date; an existing date is replaced only when the
   incoming record differs and is at least as new. **Clear history** asks for confirmation and does

@@ -24,6 +24,8 @@
     return;
   }
 
+  var MAX_SERIES = 8;
+
   var state = {
     snapshots: [],
     size: 0,
@@ -33,6 +35,7 @@
     noticeKind: "ok",
     pins: TD.HEADLINE.slice(),
     selected: ["obelisk_level"],
+    selectionCleared: false,
     range: "all",
     scale: "auto",
     editingId: null,
@@ -43,6 +46,7 @@
   var nodes = {};
   var initPromise = null;
   var seededThisSession = false;
+  var chipButtons = {};
 
   /* ---------------------------------------------------------------- */
   /* helpers                                                          */
@@ -102,7 +106,8 @@
     if (!saved || typeof saved !== "object") return;
 
     if (Array.isArray(saved.pins)) state.pins = uniqueStrings(saved.pins).slice(0, 60);
-    if (Array.isArray(saved.selected)) state.selected = uniqueStrings(saved.selected).slice(0, 12);
+    if (Array.isArray(saved.selected)) state.selected = uniqueStrings(saved.selected).slice(0, MAX_SERIES);
+    state.selectionCleared = saved.selectionCleared === true;
     if (["all", "30d", "90d", "365d"].indexOf(saved.range) >= 0) state.range = saved.range;
     if (["auto", "linear", "log"].indexOf(saved.scale) >= 0) state.scale = saved.scale;
   }
@@ -114,6 +119,7 @@
       storage.setItem(TD.PREFS_KEY, JSON.stringify({
         pins: state.pins,
         selected: state.selected,
+        selectionCleared: state.selectionCleared,
         range: state.range,
         scale: state.scale
       }));
@@ -123,6 +129,11 @@
   function setNotice(message, kind) {
     state.notice = message || "";
     state.noticeKind = kind === "warn" ? "warn" : "ok";
+  }
+
+  function syncControls() {
+    if (nodes.range) nodes.range.value = state.range;
+    if (nodes.scale) nodes.scale.value = state.scale;
   }
 
   function markSeeded() {
@@ -156,6 +167,9 @@
     nodes.note = document.getElementById("tracker-chart-note");
     nodes.chart = document.getElementById("tracker-chart");
     nodes.legend = document.getElementById("tracker-legend");
+    nodes.dataDetails = document.getElementById("tracker-data-details");
+    nodes.dataSummary = document.getElementById("tracker-data-summary");
+    nodes.data = document.getElementById("tracker-data");
     nodes.snapshotsDetails = document.getElementById("tracker-snapshots-details");
     nodes.snapshotsSummary = document.getElementById("tracker-snapshots-summary");
     nodes.snapshots = document.getElementById("tracker-snapshots");
@@ -181,6 +195,7 @@
 
     if (hasUi) {
       bindControls();
+      syncControls();
       render();
     }
 
@@ -209,6 +224,7 @@
     state.warning = res && res.warning ? res.warning : "";
     state.ready = true;
     ensureSelection();
+    syncControls();
     if (nodes.chart) render();
     refreshHomeCard();
     return seedIfNeeded();
@@ -225,7 +241,7 @@
 
     state.selected = state.selected.filter(function (key) { return available[key]; });
 
-    if (!state.selected.length) {
+    if (!state.selected.length && !state.selectionCleared) {
       var fallback = null;
       for (var i = 0; i < state.pins.length; i++) {
         if (available[state.pins[i]]) { fallback = state.pins[i]; break; }
@@ -354,9 +370,21 @@
     return null;
   }
 
+  function focusSnapshots() {
+    if (nodes.snapshots && typeof nodes.snapshots.focus === "function") {
+      nodes.snapshots.focus();
+    }
+  }
+
   function useSnapshot(id) {
     var snap = findSnapshot(id);
     if (!snap) return;
+    var when = TD.formatTimeMs(snap.timeMs, false);
+    if (typeof global.confirm === "function" &&
+        !global.confirm("Load the snapshot from " + when +
+          " into every tool? Manual edits in the tools will be replaced.")) {
+      return;
+    }
 
     var exportedAt = snap.exportedAt !== null ? snap.exportedAt : new Date(snap.timeMs).toISOString();
     var record = {
@@ -378,10 +406,12 @@
       if (global.BombTool) global.BombTool.refreshAccount();
       if (global.GoalTool) global.GoalTool.refreshAccount();
       if (global.ContractTool) global.ContractTool.refreshAccount();
+      if (global.FloorTool) global.FloorTool.refreshAccount();
     }
 
-    setNotice("Loaded the " + TD.formatTimeMs(snap.timeMs, false) + " snapshot into the tools.", "ok");
+    setNotice("Loaded the " + when + " snapshot into the tools.", "ok");
     render();
+    focusSnapshots();
     refreshHomeCard();
   }
 
@@ -389,6 +419,16 @@
     var ms = TD.fromDateInputValue(value);
     if (ms === null) {
       setNotice("Enter a valid date and time.", "warn");
+      renderBanner();
+      return;
+    }
+    if (ms < new Date(2000, 0, 1).getTime() || ms > new Date(2200, 0, 1).getTime()) {
+      setNotice("Choose a date between 2000 and 2200.", "warn");
+      renderBanner();
+      return;
+    }
+    if (ms > Date.now() + 86400000) {
+      setNotice("That date is in the future. Check the date and try again.", "warn");
       renderBanner();
       return;
     }
@@ -402,8 +442,13 @@
       state.editingId = null;
       setNotice("Snapshot date updated.", "ok");
       render();
+      focusSnapshots();
       refreshHomeCard();
       dispatchChange();
+    }).catch(function (error) {
+      setNotice("Could not update the snapshot date: " +
+        (error && error.message ? error.message : error), "warn");
+      renderBanner();
     });
   }
 
@@ -423,8 +468,13 @@
       setSnapshots(store.getCached());
       setNotice("Snapshot deleted.", "ok");
       render();
+      focusSnapshots();
       refreshHomeCard();
       dispatchChange();
+    }).catch(function (error) {
+      setNotice("Could not delete the snapshot: " +
+        (error && error.message ? error.message : error), "warn");
+      renderBanner();
     });
   }
 
@@ -446,8 +496,13 @@
       state.editingId = null;
       setNotice("Snapshot history cleared. The active account was kept.", "ok");
       render();
+      focusSnapshots();
       refreshHomeCard();
       dispatchChange();
+    }).catch(function (error) {
+      setNotice("Could not clear the snapshot history: " +
+        (error && error.message ? error.message : error), "warn");
+      renderBanner();
     });
   }
 
@@ -480,7 +535,16 @@
 
   function importHistoryFile(file) {
     if (!file) return;
+    if (file.size > 10 * 1024 * 1024) {
+      setNotice("The history file is too large (over 10 MB).", "warn");
+      renderBanner();
+      return;
+    }
     var reader = new global.FileReader();
+    reader.onerror = function () {
+      setNotice("Could not read the history file.", "warn");
+      renderBanner();
+    };
     reader.onload = function () {
       var parsed = TD.parseBundle(reader.result);
       if (!parsed.snapshots.length) {
@@ -502,8 +566,13 @@
           " unchanged, " + result.replaced + " replaced" +
           (parsed.invalid ? ", " + parsed.invalid + " invalid" : "") + ".", "ok");
         render();
+        focusSnapshots();
         refreshHomeCard();
         dispatchChange();
+      }).catch(function (error) {
+        setNotice("Could not import the history: " +
+          (error && error.message ? error.message : error), "warn");
+        renderBanner();
       });
     };
     reader.readAsText(file);
@@ -548,9 +617,12 @@
 
   function renderBanner() {
     if (!nodes.banner) return;
-    var message = state.warning || state.notice;
+    var messages = [];
+    if (state.warning) messages.push(state.warning);
+    if (state.notice) messages.push(state.notice);
+    var message = messages.join(" ");
     nodes.banner.hidden = !message;
-    nodes.banner.textContent = message || "";
+    nodes.banner.textContent = message;
     nodes.banner.className = "tracker-banner" +
       (message ? (state.warning || state.noticeKind === "warn" ? " warn" : " ok") : "");
   }
@@ -592,31 +664,51 @@
       renderBanner();
       return;
     }
+    var already = state.selected.indexOf(metric.key) >= 0;
+    if (!already && state.selected.length >= MAX_SERIES) {
+      setNotice("Up to " + MAX_SERIES + " stats can be compared at once. Unpin one first.", "warn");
+      renderBanner();
+      return;
+    }
     if (state.pins.indexOf(metric.key) < 0) state.pins.push(metric.key);
-    if (state.selected.indexOf(metric.key) < 0) state.selected.push(metric.key);
+    if (!already) state.selected.push(metric.key);
+    state.selectionCleared = false;
     if (nodes.search) nodes.search.value = "";
     state.notice = "";
     savePrefs();
     render();
+    var chip = chipButtons[metric.key];
+    if (chip && typeof chip.focus === "function") chip.focus();
   }
 
   function toggleSelected(key) {
     var index = state.selected.indexOf(key);
     if (index >= 0) {
       state.selected.splice(index, 1);
+      if (!state.selected.length) state.selectionCleared = true;
     } else {
+      if (state.selected.length >= MAX_SERIES) {
+        setNotice("Up to " + MAX_SERIES + " stats can be compared at once. Unpin one first.", "warn");
+        renderBanner();
+        return;
+      }
       state.selected.push(key);
       if (state.pins.indexOf(key) < 0) state.pins.push(key);
+      state.selectionCleared = false;
     }
     savePrefs();
-    renderGraph();
+    updateClearButton();
+    updateChipStates();
+    renderChart();
   }
 
   function unpin(key) {
     state.pins = state.pins.filter(function (k) { return k !== key; });
     state.selected = state.selected.filter(function (k) { return k !== key; });
+    state.selectionCleared = !state.selected.length;
     savePrefs();
     renderGraph();
+    if (nodes.search && typeof nodes.search.focus === "function") nodes.search.focus();
   }
 
   function isSelected(key) {
@@ -631,7 +723,12 @@
     return null;
   }
 
+  function updateClearButton() {
+    if (nodes.clearSelection) nodes.clearSelection.disabled = !state.selected.length;
+  }
+
   function renderGraph() {
+    updateClearButton();
     renderChips();
     renderChart();
   }
@@ -639,6 +736,9 @@
   function renderChips() {
     if (!nodes.chips) return;
     nodes.chips.innerHTML = "";
+    chipButtons = {};
+    nodes.chips.hidden = !state.snapshots.length;
+    if (!state.snapshots.length) return;
 
     var catalog = TD.buildMetricCatalog(state.snapshots);
     var byKey = {};
@@ -658,24 +758,45 @@
       main.appendChild(el("span", "tracker-chip-value", value === null ? "—" : TD.formatValue(value)));
       main.addEventListener("click", function () { toggleSelected(key); });
       chip.appendChild(main);
+      chipButtons[key] = main;
 
       var unpinButton = el("button", "tracker-chip-pin", "×");
       unpinButton.type = "button";
       unpinButton.title = "Unpin " + label;
+      unpinButton.setAttribute("aria-label", "Unpin " + label);
       unpinButton.addEventListener("click", function () { unpin(key); });
       chip.appendChild(unpinButton);
       nodes.chips.appendChild(chip);
     });
   }
 
-  function emptyChart(title, detail) {
+  function updateChipStates() {
+    Object.keys(chipButtons).forEach(function (key) {
+      var main = chipButtons[key];
+      if (!main) return;
+      var chip = main.parentNode;
+      var selected = isSelected(key);
+      if (chip) chip.className = "tracker-chip" + (selected ? " selected" : "");
+      main.setAttribute("aria-pressed", selected ? "true" : "false");
+      main.title = selected ? "Remove from the chart" : "Chart this stat";
+    });
+  }
+
+  function emptyChart(title, detail, homeLink) {
     nodes.chart.innerHTML = "";
     var box = el("div", "tracker-empty");
     box.appendChild(el("p", null, title));
     if (detail) box.appendChild(el("p", "hint", detail));
+    if (homeLink) {
+      var link = el("a", "ghost-link", "Go to Home to import");
+      link.href = "#/home";
+      box.appendChild(link);
+    }
     nodes.chart.appendChild(box);
     if (nodes.legend) nodes.legend.innerHTML = "";
     if (nodes.note) nodes.note.textContent = "";
+    if (nodes.data) nodes.data.innerHTML = "";
+    if (nodes.dataSummary) nodes.dataSummary.textContent = "Chart data";
   }
 
   function renderChart() {
@@ -685,7 +806,7 @@
       return;
     }
     if (!state.snapshots.length) {
-      emptyChart("No snapshots yet.", "Import your ExportStats JSON on the Home page. Every successful import is recorded here automatically.");
+      emptyChart("No snapshots yet.", "Import your ExportStats JSON on the Home page. Every successful import is recorded here automatically.", true);
       return;
     }
     if (!state.selected.length) {
@@ -708,13 +829,13 @@
       series.points.forEach(function (point) { distinctX[point.x] = true; });
     });
     var notes = [];
-    if (model.normalize) notes.push("Multiple stats are normalized to their first value = 100%.");
+    if (model.normalize) notes.push("Multiple stats are normalized to their first positive value = 100%.");
     if (model.scale === "log") notes.push("Log scale.");
     if (model.warning) notes.push(model.warning);
     if (Object.keys(distinctX).length === 1) {
       notes.push("Only one snapshot in this range; import another export to see a trend.");
     }
-    if (model.normalize) notes.push("Hover the chart to see raw values.");
+    notes.push("Hover a point on desktop, or open Chart data below, for exact values.");
     if (nodes.note) nodes.note.textContent = notes.join(" ");
 
     if (typeof document.createElementNS !== "function") {
@@ -722,9 +843,19 @@
       return;
     }
 
-    var W = 860;
-    var H = 380;
-    var margin = { left: 70, right: 20, top: 18, bottom: 46 };
+    var chartWidth = 860;
+    if (nodes.chart) {
+      chartWidth = nodes.chart.clientWidth ||
+        (typeof nodes.chart.getBoundingClientRect === "function" && nodes.chart.getBoundingClientRect().width) ||
+        860;
+    }
+    var mobile = chartWidth < 700;
+    var W = mobile ? Math.max(300, Math.round(chartWidth)) : 860;
+    var H = mobile ? 300 : 380;
+    var margin = mobile
+      ? { left: 56, right: 12, top: 14, bottom: 44 }
+      : { left: 70, right: 20, top: 18, bottom: 46 };
+    var fontSize = mobile ? 10 : 11;
     var plotW = W - margin.left - margin.right;
     var plotH = H - margin.top - margin.bottom;
 
@@ -745,7 +876,8 @@
       viewBox: "0 0 " + W + " " + H,
       "class": "tracker-svg",
       role: "img",
-      "aria-label": model.series.map(function (s) { return s.label; }).join(", ") + " over time"
+      "aria-label": model.series.map(function (s) { return s.label; }).join(", ") + " over time",
+      "aria-describedby": "tracker-chart-note tracker-data-summary"
     });
 
     model.yTicks.forEach(function (tick) {
@@ -756,22 +888,29 @@
         stroke: "#2b3340", "stroke-width": 1
       }));
       var label = svgEl("text", {
-        x: margin.left - 10, y: y + 4, fill: "#8b98a5",
-        "font-size": 11, "text-anchor": "end"
+        x: margin.left - (mobile ? 8 : 10), y: y + 4, fill: "#8b98a5",
+        "font-size": fontSize, "text-anchor": "end"
       });
       label.textContent = model.normalize ? TD.formatIndex(tick) : TD.formatValue(tick);
       svg.appendChild(label);
     });
 
-    model.xTicks.forEach(function (tick) {
+    var drawXTicks = model.xTicks;
+    if (mobile && drawXTicks.length > 4) {
+      var allXTicks = drawXTicks;
+      drawXTicks = drawXTicks.filter(function (tick, index) {
+        return index % 2 === 0 || index === allXTicks.length - 1;
+      });
+    }
+    drawXTicks.forEach(function (tick) {
       var x = xPos(tick.value);
       svg.appendChild(svgEl("line", {
         x1: x, y1: margin.top, x2: x, y2: margin.top + plotH,
         stroke: "#2b3340", "stroke-width": 1, "stroke-dasharray": "2 4"
       }));
       var label = svgEl("text", {
-        x: x, y: H - 20, fill: "#8b98a5",
-        "font-size": 11, "text-anchor": "middle"
+        x: x, y: H - (mobile ? 16 : 20), fill: "#8b98a5",
+        "font-size": fontSize, "text-anchor": "middle"
       });
       label.textContent = tick.label;
       svg.appendChild(label);
@@ -877,6 +1016,11 @@
       if (typeof wrap.getBoundingClientRect === "function") {
         var wrapRect = wrap.getBoundingClientRect();
         if (wrapRect.width && left + 230 > wrapRect.width) left -= 250;
+        if (wrapRect.height) {
+          var tipHeight = tooltip.offsetHeight || 80;
+          if (top + tipHeight > wrapRect.height) top -= tipHeight + 24;
+          if (top < 0) top = 0;
+        }
       }
       tooltip.style.left = Math.max(0, left) + "px";
       tooltip.style.top = Math.max(0, top) + "px";
@@ -885,6 +1029,7 @@
     svg.addEventListener("mouseleave", hideTooltip);
 
     renderLegend(model);
+    renderDataTable(model);
   }
 
   function renderLegend(model) {
@@ -898,6 +1043,58 @@
       item.appendChild(el("span", null, series.label));
       nodes.legend.appendChild(item);
     });
+  }
+
+  function renderDataTable(model) {
+    if (!nodes.data) return;
+    nodes.data.innerHTML = "";
+    if (!model || model.empty || !model.series.length) {
+      if (nodes.dataSummary) nodes.dataSummary.textContent = "Chart data";
+      nodes.data.appendChild(el("p", "hint", "No chart data in this range."));
+      return;
+    }
+    if (nodes.dataSummary) {
+      nodes.dataSummary.textContent = "Chart data (" + model.filtered.length +
+        (model.filtered.length === 1 ? " snapshot" : " snapshots") + ")";
+    }
+
+    var table = el("table", "results-table tracker-data-table");
+    var thead = el("thead");
+    var head = el("tr");
+    var dateHead = el("th", null, "Date");
+    dateHead.setAttribute("scope", "col");
+    head.appendChild(dateHead);
+    model.series.forEach(function (series) {
+      var th = el("th", null, series.label);
+      th.setAttribute("scope", "col");
+      head.appendChild(th);
+    });
+    thead.appendChild(head);
+    table.appendChild(thead);
+
+    var tbody = el("tbody");
+    model.filtered.forEach(function (snap) {
+      var row = el("tr");
+      row.appendChild(el("td", null, TD.formatTimeMs(snap.timeMs, false)));
+      model.series.forEach(function (series) {
+        var point = null;
+        for (var i = 0; i < series.points.length; i++) {
+          if (series.points[i].x === snap.timeMs) {
+            point = series.points[i];
+            break;
+          }
+        }
+        var text = point ? TD.formatValue(point.raw) : "—";
+        if (point && model.normalize) text += " (" + TD.formatIndex(point.y) + ")";
+        row.appendChild(el("td", null, text));
+      });
+      tbody.appendChild(row);
+    });
+    table.appendChild(tbody);
+    nodes.data.appendChild(scrollWrap(table));
+    nodes.data.appendChild(el("p", "hint", model.normalize
+      ? "Raw values at each snapshot in the selected range, with the normalized index in parentheses."
+      : "Values at each snapshot in the selected range."));
   }
 
   function renderSnapshots() {
@@ -923,7 +1120,9 @@
     var thead = el("thead");
     var headRow = el("tr");
     ["Date", "Version", "Source", "OB", "Floor", "Actions"].forEach(function (label) {
-      headRow.appendChild(el("th", null, label));
+      var th = el("th", null, label);
+      th.setAttribute("scope", "col");
+      headRow.appendChild(th);
     });
     thead.appendChild(headRow);
     table.appendChild(thead);
@@ -939,6 +1138,18 @@
         var input = el("input");
         input.type = "datetime-local";
         input.value = TD.toDateInputValue(snap.timeMs);
+        input.setAttribute("aria-label", "Snapshot date and time");
+        input.addEventListener("keydown", function (event) {
+          if (event.key === "Enter") {
+            event.preventDefault();
+            saveDate(snap.id, input.value);
+          } else if (event.key === "Escape") {
+            event.preventDefault();
+            state.editingId = null;
+            renderSnapshots();
+            focusSnapshots();
+          }
+        });
         var save = el("button", "ghost", "Save");
         save.type = "button";
         save.addEventListener("click", function () { saveDate(snap.id, input.value); });
@@ -947,11 +1158,13 @@
         cancel.addEventListener("click", function () {
           state.editingId = null;
           renderSnapshots();
+          focusSnapshots();
         });
         editor.appendChild(input);
         editor.appendChild(save);
         editor.appendChild(cancel);
         dateCell.appendChild(editor);
+        if (typeof input.focus === "function") input.focus();
       } else {
         dateCell.appendChild(el("span", null, TD.formatTimeMs(snap.timeMs, false)));
         if (snap.timeEdited) dateCell.appendChild(el("span", "tracker-date-edited", "edited"));
@@ -1050,8 +1263,12 @@
     if (nodes.clearSelection) {
       nodes.clearSelection.addEventListener("click", function () {
         state.selected = [];
+        state.selectionCleared = true;
         savePrefs();
-        renderGraph();
+        updateClearButton();
+        updateChipStates();
+        renderChart();
+        if (nodes.search && typeof nodes.search.focus === "function") nodes.search.focus();
       });
     }
     if (nodes.range) {
@@ -1084,6 +1301,15 @@
 
     if (typeof global.addEventListener === "function") {
       global.addEventListener("obelisk-account-change", refreshAccount);
+      global.addEventListener("resize", function () {
+        if (nodes.chart && state.ready) renderChart();
+      });
+      global.addEventListener("hashchange", function () {
+        setTimeout(function () {
+          var view = document.getElementById("view-tracker");
+          if (nodes.chart && state.ready && view && !view.hidden) renderChart();
+        }, 60);
+      });
     }
   }
 

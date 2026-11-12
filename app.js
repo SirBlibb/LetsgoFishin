@@ -823,6 +823,11 @@
     box.className = "import-status " + (ok ? "ok" : "warn");
   }
 
+  function showTrackerLink() {
+    var link = document.getElementById("import-tracker-link");
+    if (link) link.hidden = false;
+  }
+
   function recordTracker(parsed, res, rawText, source, done) {
     if (!window.TrackerTool || typeof window.TrackerTool.recordImport !== "function") return;
     window.TrackerTool.recordImport(parsed, res, rawText, source).then(function (result) {
@@ -861,6 +866,7 @@
         var backfillMessage = "Imported " + source + " (" + (parsed.version || "?") +
           "): this export is older than the active account, so it was recorded in the Tracker only.";
         showReport(backfillMessage, true);
+        showTrackerLink();
         recordTracker(parsed, res, rawText, source, function (suffix, ok) {
           showReport(backfillMessage + (suffix ? " " + suffix : ""), ok);
         });
@@ -900,6 +906,7 @@
           " missing - re-export from the latest game version." : "");
       var messageOk = res.missing.length === 0 && floorGaps === 0;
       showReport(message, messageOk);
+      showTrackerLink();
       if (!isSample) {
         recordTracker(parsed, res, rawText, source, function (suffix, ok) {
           showReport(message + (suffix ? " " + suffix : ""), messageOk && ok);
@@ -935,6 +942,7 @@
       if (window.BombTool) window.BombTool.refreshAccount();
       if (window.GoalTool) window.GoalTool.refreshAccount();
       if (window.ContractTool) window.ContractTool.refreshAccount();
+      if (window.FloorTool) window.FloorTool.refreshAccount();
       if (window.TrackerTool) window.TrackerTool.refreshAccount();
       restoredSaved = true;
       clearHistory();
@@ -1107,7 +1115,7 @@
               : view === "floors"
                 ? "Best Floor to Farm - Obelisk Miner Tools"
                 : view === "tracker"
-                  ? "Tracker - Progression Over Time"
+                  ? "Tracker - Obelisk Miner Tools"
                   : "Obelisk Miner Tools";
     }
   }

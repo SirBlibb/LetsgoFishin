@@ -283,12 +283,14 @@ check("tracker starts ready and empty", trackerState.ready === true && trackerSt
 check("tracker home badge starts empty", byId["tracker-badge"].textContent === "No snapshots");
 check("tracker chart starts empty", nodeText(byId["tracker-chart"]).indexOf("No snapshots") >= 0);
 check("tracker table starts empty", nodeText(byId["tracker-snapshots"]).indexOf("No snapshots") >= 0);
-check("tracker quick picks render", byId["tracker-chips"].children.length >= 10);
+check("tracker hides quick picks while empty", byId["tracker-chips"].hidden === true);
 
 var trackerParsed = ES.parseExport(window.SAMPLE_EXPORT);
 var trackerRes = ES.apply(trackerParsed.stats, FM.defaultInputs());
 global.TrackerTool.recordImport(trackerParsed, trackerRes, JSON.stringify(window.SAMPLE_EXPORT), "pasted JSON");
 check("tracker records an import", global.TrackerTool.getState().snapshots === 1);
+check("tracker quick picks render after an import",
+  byId["tracker-chips"].hidden === false && byId["tracker-chips"].children.length >= 10);
 check("tracker home badge counts the import", byId["tracker-badge"].textContent === "1 snapshot");
 check("tracker table lists the import", trackerSnapshotRowsOf().length === 1);
 check("tracker table shows the OB level", trackerSnapshotRowsOf()[0].children[3].textContent === "71");
@@ -305,6 +307,16 @@ check("tracker table is newest first", trackerSnapshotRowsOf()[0].children[3].te
 check("tracker chart draws a line", countTags(byId["tracker-chart"], "path") >= 1);
 check("tracker status counts the snapshots", byId["tracker-status"].textContent.indexOf("2 snapshots") >= 0);
 check("tracker summary counts the snapshots", byId["tracker-snapshots-summary"].textContent.indexOf("2 snapshots") >= 0);
+check("tracker chart data table renders", byId["tracker-data"].children.length > 0);
+fire(byId["tracker-clear-selection"], "click");
+check("tracker clears the chart selection", global.TrackerTool.getState().selected.length === 0);
+check("tracker disables clear selection when empty", byId["tracker-clear-selection"].disabled === true);
+var trackerPrefs = JSON.parse(global.localStorage.getItem("obelisk-tracker-prefs-v1"));
+check("tracker remembers a cleared selection", trackerPrefs.selectionCleared === true);
+delete require.cache[require.resolve("../tracker.js")];
+require("../tracker.js");
+global.TrackerTool.init();
+check("tracker does not re-select a cleared chart", global.TrackerTool.getState().selected.length === 0);
 
 /* ---- contract planner interactions -------------------------------- */
 var contractSpare = byId["contracts-spare"];

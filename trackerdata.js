@@ -122,8 +122,8 @@
   };
 
   var PALETTE = [
-    "#2f81f7", "#3fb950", "#d29922", "#f85149",
-    "#a371f7", "#39c5cf", "#db6d28", "#e3b341"
+    "var(--chart-1)", "var(--chart-2)", "var(--chart-3)", "var(--chart-4)",
+    "var(--chart-5)", "var(--chart-6)", "var(--chart-7)", "var(--chart-8)"
   ];
 
   function isNum(v) { return typeof v === "number" && isFinite(v); }
@@ -154,8 +154,15 @@
     }
     var ms = EXCEL_EPOCH_MS + serial * DAY_MS;
     if (!isFinite(ms) || ms < Date.UTC(1970, 0, 1) || ms > Date.UTC(2200, 0, 1)) return null;
-    var d = new Date(ms);
-    return isNaN(d.getTime()) ? null : d;
+    var digits = new Date(ms);
+    if (isNaN(digits.getTime())) return null;
+    // Excel serials are naive wall-clock values. Read the digits in the
+    // browser's timezone so they can be compared with importedAt instants.
+    var local = new Date(
+      digits.getUTCFullYear(), digits.getUTCMonth(), digits.getUTCDate(),
+      digits.getUTCHours(), digits.getUTCMinutes(), digits.getUTCSeconds(), digits.getUTCMilliseconds()
+    );
+    return isNaN(local.getTime()) ? null : local;
   }
 
   function exportTimeMs(value) {
@@ -168,14 +175,14 @@
   function formatTimeMs(ms, short) {
     if (!isNum(ms)) return "not recorded";
     var opts = short
-      ? { timeZone: "UTC", year: "numeric", month: "short", day: "numeric" }
-      : { timeZone: "UTC", year: "numeric", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" };
+      ? { year: "numeric", month: "short", day: "numeric" }
+      : { year: "numeric", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" };
     return new Date(ms).toLocaleString("en-US", opts);
   }
 
   function formatAxisDate(ms, showYear, showTime) {
     if (!isNum(ms)) return "";
-    var opts = { timeZone: "UTC", month: "short", day: "numeric" };
+    var opts = { month: "short", day: "numeric" };
     if (showYear) opts.year = "numeric";
     if (showTime) {
       opts.hour = "numeric";
@@ -186,9 +193,12 @@
 
   function formatExportDate(value) {
     var d = value instanceof Date ? value : parseExportTime(value);
-    if (!d) return typeof value === "string" ? value : "not provided";
+    if (!d) {
+      if (typeof value === "string") return value;
+      if (isNum(value)) return value.toLocaleString("en-US", { maximumFractionDigits: 2 });
+      return "not provided";
+    }
     return d.toLocaleString("en-US", {
-      timeZone: "UTC",
       year: "numeric",
       month: "short",
       day: "numeric",
@@ -200,14 +210,14 @@
   function toDateInputValue(ms) {
     if (!isNum(ms)) return "";
     var d = new Date(ms);
-    return d.getUTCFullYear() + "-" + pad(d.getUTCMonth() + 1) + "-" + pad(d.getUTCDate()) +
-      "T" + pad(d.getUTCHours()) + ":" + pad(d.getUTCMinutes());
+    return d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate()) +
+      "T" + pad(d.getHours()) + ":" + pad(d.getMinutes());
   }
 
   function fromDateInputValue(value) {
     var m = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/.exec(String(value || ""));
     if (!m) return null;
-    var ms = Date.UTC(+m[1], +m[2] - 1, +m[3], +m[4], +m[5]);
+    var ms = new Date(+m[1], +m[2] - 1, +m[3], +m[4], +m[5]).getTime();
     return isFinite(ms) ? ms : null;
   }
 
@@ -336,6 +346,15 @@
     });
   }
 
+  function keepEditedTime(prev, next) {
+    if (prev && prev.timeEdited && !next.timeEdited) {
+      next.timeMs = prev.timeMs;
+      next.timeEdited = true;
+      next.timeSource = "manual";
+    }
+    return next;
+  }
+
   function mergeSnapshots(existing, incoming) {
     var map = {};
     var added = 0, skipped = 0, replaced = 0;
@@ -358,7 +377,7 @@
         var prevAt = Date.parse(prev.importedAt || "");
         var nextAt = Date.parse(snap.importedAt || "");
         if (!isFinite(prevAt) || !isFinite(nextAt) || nextAt >= prevAt) {
-          map[snap.id] = snap;
+          map[snap.id] = keepEditedTime(prev, snap);
           replaced++;
         } else {
           skipped++;
@@ -492,10 +511,13 @@
 
       var baseline = null;
       if (normalize) {
+        var baseIndex = -1;
         for (var i = 0; i < points.length; i++) {
-          if (points[i].y !== 0) { baseline = points[i].y; break; }
+          if (points[i].y > 0) { baseIndex = i; break; }
         }
-        if (baseline === null) return;
+        if (baseIndex < 0) return;
+        points = points.slice(baseIndex);
+        baseline = points[0].y;
         points = points.map(function (p) {
           return { x: p.x, y: (p.y / baseline) * 100, raw: p.raw, id: p.id };
         });
@@ -599,13 +621,12 @@
 
     var requested = opts.scale || "auto";
     var logPossible = yMin > 0;
-    var autoLog = !normalize && series.length === 1 && logPossible && yMax / yMin >= 100;
+    var autoLog = logPossible && yMax / yMin >= 100;
     var scale = "linear";
     var warning = "";
 
     if (requested === "log") {
-      if (normalize) warning = "Normalized comparisons use a linear scale.";
-      else if (!logPossible) warning = "Log scale needs positive values; showing linear.";
+      if (!logPossible) warning = "Log scale needs positive values; showing linear.";
       else scale = "log";
     } else if (requested === "auto" && autoLog) {
       scale = "log";
@@ -671,6 +692,10 @@
       v /= 1000;
       tier++;
     }
+    if (v >= 999.5 && tier < SUFFIX.length - 1) {
+      v /= 1000;
+      tier++;
+    }
     var text;
     if (tier === 0) {
       if (Math.abs(v - Math.round(v)) < 1e-9) {
@@ -686,7 +711,7 @@
 
   function formatIndex(n) {
     if (!isNum(n)) return "-";
-    if (Math.abs(n) >= 1000) return formatValue(n);
+    if (Math.abs(n) >= 1000) return Math.round(n).toLocaleString("en-US") + "%";
     return (Math.round(n * 10) / 10).toFixed(1) + "%";
   }
 
@@ -832,14 +857,21 @@
       return "Browser storage is unavailable. Snapshots last for this session only.";
     }
 
+    function keepCorruptFallback(raw) {
+      warning = "The local snapshot history could not be read. The old value was kept as " +
+        FALLBACK_KEY + "-corrupt.";
+      try { storage.setItem(FALLBACK_KEY + "-corrupt", raw); } catch (e) { /* ignored */ }
+      return [];
+    }
+
     function readLocal() {
       if (!storage) return null;
       var raw = null;
       try { raw = storage.getItem(FALLBACK_KEY); } catch (e) { return null; }
       if (!raw) return [];
       var parsed;
-      try { parsed = JSON.parse(raw); } catch (e) { return []; }
-      if (!Array.isArray(parsed)) return [];
+      try { parsed = JSON.parse(raw); } catch (e) { return keepCorruptFallback(raw); }
+      if (!Array.isArray(parsed)) return keepCorruptFallback(raw);
       var out = [];
       parsed.forEach(function (item) {
         var snap = normalizeSnapshot(item);
@@ -1034,7 +1066,7 @@
         return { added: false, skipped: true, total: cache.length };
       }
       var replaced = idx >= 0;
-      if (replaced) current[idx] = snap;
+      if (replaced) current[idx] = keepEditedTime(current[idx], snap);
       else current.push(snap);
 
       if (storage) {
@@ -1069,9 +1101,14 @@
           return { added: false, skipped: true, total: cache.length };
         }
         var replaced = idx >= 0;
-        if (replaced) list[idx] = normalized;
-        else list.push(normalized);
-        return idbPut(normalized).then(function () {
+        var toStore = normalized;
+        if (replaced) {
+          toStore = keepEditedTime(list[idx], normalized);
+          list[idx] = toStore;
+        } else {
+          list.push(toStore);
+        }
+        return idbPut(toStore).then(function () {
           return idbAll().then(function (fresh) {
             cache = fresh;
             return { added: !replaced, replaced: replaced, total: cache.length };

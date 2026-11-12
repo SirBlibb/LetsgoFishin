@@ -42,6 +42,7 @@
       <div class="import-controls import-apply">
         <button id="btn-paste" class="ghost" type="button">Paste from clipboard</button>
         <button id="btn-parse" type="button">Apply JSON</button>
+        <a id="import-tracker-link" class="ghost-link" href="#/tracker" hidden>View in Tracker</a>
       </div>
       <div id="import-status" class="import-status"></div>
       <div id="account-summary" class="account-summary"></div>
@@ -732,7 +733,7 @@
 
     <section class="panel">
       <h2>1. Progression graph</h2>
-      <div id="tracker-banner" class="tracker-banner" hidden></div>
+      <div id="tracker-banner" class="tracker-banner" role="status" aria-live="polite" hidden></div>
       <div id="tracker-chips" class="tracker-chips"></div>
       <div class="tracker-controls">
         <label class="field tracker-search-field">
@@ -748,9 +749,9 @@
           <span class="field-label">Range</span>
           <select id="tracker-range">
             <option value="all">All snapshots</option>
-            <option value="30d">Last 30 days</option>
-            <option value="90d">Last 90 days</option>
-            <option value="365d">Last year</option>
+            <option value="30d">Last 30 days of history</option>
+            <option value="90d">Last 90 days of history</option>
+            <option value="365d">Last year of history</option>
           </select>
         </label>
         <label class="field">
@@ -769,10 +770,14 @@
       <p id="tracker-chart-note" class="hint"></p>
       <div id="tracker-chart" class="tracker-chart"></div>
       <div id="tracker-legend" class="tracker-legend"></div>
+      <details class="tracker-data-details" id="tracker-data-details">
+        <summary id="tracker-data-summary">Chart data</summary>
+        <div id="tracker-data"></div>
+      </details>
     </section>
 
     <section class="panel acc-panel">
-      <details class="acc" id="tracker-snapshots-details">
+      <details class="acc" id="tracker-snapshots-details" open>
         <summary>
           <span class="acc-title">2. Snapshots</span>
           <span class="acc-sub" id="tracker-snapshots-summary">No snapshots yet</span>
@@ -785,8 +790,8 @@
             <input id="tracker-import-file" type="file" accept=".json,application/json" hidden>
             <button id="tracker-clear" class="ghost" type="button">Clear history</button>
           </div>
-          <div id="tracker-snapshots"></div>
-          <p class="hint">Snapshots are stored in this browser. Download the history file to keep a backup or move it to another device. Dates use the export's recorded clock (UTC). Editing a date changes where it sits on the chart, not its export identity. Clear history does not reset your active account.</p>
+          <div id="tracker-snapshots" tabindex="-1"></div>
+          <p class="hint">Snapshots are stored in this browser. Download the history file to keep a backup or move it to another device. Dates use the export's recorded clock in your local timezone. Editing a date changes where it sits on the chart, not its export identity. Clear history does not reset your active account.</p>
         </div>
       </details>
     </section>
@@ -798,7 +803,7 @@
           <li><strong>Recording:</strong> every successful paste, file pick, or drag-drop of an ExportStats JSON appends a snapshot. The built-in sample exports are not recorded, and importing the same export twice does not create a duplicate.</li>
           <li><strong>Dates:</strong> the export's <code>time</code> is an Excel serial date, so it already contains the date and time the game made the file. Exports without a valid time fall back to the browser import time. You can correct a date in the snapshot table.</li>
           <li><strong>Backfilling:</strong> an export older than the account currently loaded into the other tools is recorded here but does not replace that account. Use <strong>Use</strong> in the snapshot table if you deliberately want to load an older one.</li>
-          <li><strong>Graph:</strong> one stat is plotted in its own units. Selecting more than one stat switches to a normalized comparison where every series starts at 100%, because raw scales can differ by dozens of orders of magnitude. Hover a point to see the raw values.</li>
+          <li><strong>Graph:</strong> one stat is plotted in its own units. Selecting more than one stat switches to a normalized comparison where every series starts at 100% at its first positive value, because raw scales can differ by dozens of orders of magnitude. Hover a point on desktop, or open <strong>Chart data</strong>, to read exact values. Up to eight stats can be compared at once.</li>
           <li><strong>Storage:</strong> history lives in IndexedDB, separate from the active account in local storage. If IndexedDB is unavailable, the tracker falls back to local storage and keeps the newest 50 snapshots.</li>
           <li><strong>Backups:</strong> <strong>Download history</strong> writes a JSON bundle. <strong>Import history</strong> merges it by export date; an existing export date is replaced only when the incoming record differs.</li>
         </ul>

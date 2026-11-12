@@ -1593,3 +1593,6 @@ button.floors-sort:focus-visible { outline: 2px solid var(--accent); outline-off
 .damage-delta.down {
   color: #ff9d95;
 }
+
+.damage-armor.pass { border-left: 3px solid #3fb950; }
+.damage-armor.fail { border-left: 3px solid #f85149; }

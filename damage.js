@@ -27,6 +27,7 @@
     contractMode: "maxed",
     contractsCompleted: 0,
     contractCapIncrease: 0,
+    targetOb: 0,
     overrides: {},
     result: null
   };
@@ -142,6 +143,7 @@
         if (p.golden) state.golden = Object.assign({}, state.golden, p.golden);
         if (p.overrides && typeof p.overrides === "object") state.overrides = p.overrides;
         if (p.contractMode === "current" || p.contractMode === "maxed") state.contractMode = p.contractMode;
+        if (typeof p.targetOb === "number" && isFinite(p.targetOb)) state.targetOb = Math.max(0, Math.floor(p.targetOb));
         if (typeof p.contractsCompleted === "number" && isFinite(p.contractsCompleted)) {
           state.contractsCompleted = Math.max(0, Math.floor(p.contractsCompleted));
         }
@@ -158,7 +160,8 @@
         golden: state.golden,
         overrides: state.overrides,
         contractMode: state.contractMode,
-        contractsCompleted: state.contractsCompleted
+        contractsCompleted: state.contractsCompleted,
+        targetOb: state.targetOb
       }));
     } catch (e) { /* storage blocked */ }
   }
@@ -393,6 +396,7 @@
   function fillInputs() {
     if (nodes.contractsCompleted) nodes.contractsCompleted.value = String(state.contractsCompleted);
     if (nodes.capIncrease) nodes.capIncrease.value = String(state.contractCapIncrease);
+    if (nodes.targetOb) nodes.targetOb.value = String(state.targetOb);
     if (nodes.contractsMax) nodes.contractsMax.checked = state.contractMode === "maxed";
     if (nodes.contractsCurrent) nodes.contractsCurrent.checked = state.contractMode === "current";
     fillStatInputs();
@@ -509,7 +513,8 @@
       golden: state.golden,
       contractMode: state.contractMode,
       contractsCompleted: state.contractsCompleted,
-      contractCapIncrease: state.contractCapIncrease
+      contractCapIncrease: state.contractCapIncrease,
+      targetOb: state.targetOb
     });
     renderHero();
     renderStats();
@@ -554,6 +559,21 @@
       r.scenario.bomb.hit.maxTierName + " · " + fmtChance(r.scenario.bomb.hit.maxChance) + " chance · " +
       fmtDelta(r.deltas.bombMaxHit) + " vs current"));
     nodes.hero.appendChild(bomb);
+
+    var ar = r.armor && r.armor.scenario;
+    if (ar) {
+      var cur = r.armor.current;
+      var pass = ar.max.pass;
+      var card = el("div", "damage-bomb-card damage-armor " + (pass ? "pass" : "fail"));
+      card.appendChild(el("span", "damage-bomb-label", "Obelisk armour check (OB " + ar.level + ")"));
+      card.appendChild(el("strong", "damage-bomb-value",
+        (pass ? "Met" : "Not met") + " · " + fmt(ar.max.hit) + " vs " + fmt(ar.armor)));
+      card.appendChild(el("span", "damage-bomb-sub",
+        "Max hit is " + ar.max.ratio.toPrecision(3) + "× the armour · typical hit " +
+        ar.expected.ratio.toPrecision(3) + "× (" + (ar.expected.pass ? "met" : "not met") + ")" +
+        (cur ? " · current setup " + cur.max.ratio.toPrecision(3) + "× (" + (cur.max.pass ? "met" : "not met") + ")" : "")));
+      nodes.hero.appendChild(card);
+    }
   }
 
   function renderStats() {
@@ -739,6 +759,7 @@
     nodes.statsDetails = document.getElementById("damage-stats-details");
     nodes.contractsCompleted = document.getElementById("damage-contracts-completed");
     nodes.capIncrease = document.getElementById("damage-cap-increase");
+    nodes.targetOb = document.getElementById("damage-target-ob");
     nodes.contractsMax = document.getElementById("damage-contracts-max");
     nodes.contractsCurrent = document.getElementById("damage-contracts-current");
 
@@ -749,6 +770,14 @@
         var v = parseInt(nodes.contractsCompleted.value, 10);
         if (!isFinite(v)) return;
         state.contractsCompleted = Math.max(0, v);
+        update();
+      });
+    }
+    if (nodes.targetOb) {
+      nodes.targetOb.addEventListener("input", function () {
+        var v = parseInt(nodes.targetOb.value, 10);
+        if (!isFinite(v)) return;
+        state.targetOb = Math.max(0, v);
         update();
       });
     }

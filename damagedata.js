@@ -312,8 +312,8 @@
     // Remove the known active consumables and current contract factors from
     // the exported totals.  These are the stable "base" values every
     // scenario is rebuilt from.
-    var activeBaseFactor = itemBaseFactor(source, activeItems, golden);
-    var activeBombFactor = itemBombFactor(source, activeItems, golden);
+    var activeBaseFactor = itemBaseFactor(source, activeItems, goldenFromStats(source));
+    var activeBombFactor = itemBombFactor(source, activeItems, goldenFromStats(source));
     var activeCritChance = itemCritChance(activeItems);
     var activeCritDamage = itemCritDamage(activeItems);
     var activeAttackSpeed = itemAttackSpeed(activeItems);

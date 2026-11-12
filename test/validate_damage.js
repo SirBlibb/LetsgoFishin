@@ -193,5 +193,15 @@ check("manual OB 0 locks the omega contract",
 check("manual OB 0 warns about locked damage contracts",
   defaults.warnings.some(function (w) { return w.indexOf("OB-locked") >= 0; }));
 
+
+// Golden what-ifs must raise the hit even when the item was active at export.
+(function () {
+  var all = DD.defaultItems(true);
+  var base = DD.computeDamage(stats, { items: all, contractMode: "current" });
+  var gold = DD.computeDamage(stats, { items: all, contractMode: "current", golden: { chaosTotem: true } });
+  check("golden chaos totem triples the bomb hit",
+    close(gold.scenario.bomb.base / base.scenario.bomb.base, 3));
+})();
+
 console.log(fails === 0 ? "DAMAGE OK" : fails + " FAILED");
 process.exitCode = fails === 0 ? 0 : 1;

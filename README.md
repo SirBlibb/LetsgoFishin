@@ -7,6 +7,7 @@ A static website with a shared **account importer** plus tools for *Idle Obelisk
 - **Goal ETA** estimates how long an ore or bar target will take from a measured ore/hour rate, with progress, milestones, and the rate a deadline needs.
 - **Best Floor to Farm** ranks all 132 dungeon floors for any ore or vein, with Void Drone and bomb advice, warnings and a what-if stats editor.
 - **Contract Point Planner** ranks all 34 contract upgrades for a chosen mix of ore, veins, stars, bars, and damage, then turns spare CP (or a full respec) into an ordered spend plan.
+- **Max Damage** shows the biggest pickaxe and bomb hit you can reach with damage consumables toggled on and the damage contracts maxed, with a crit-tier breakdown and current-vs-max comparison.
 - **Tracker** records every imported ExportStats JSON as a dated snapshot and charts any stat's growth over time, with one-metric or normalized multi-stat graphs.
 
 The fishing optimizer is a faithful JavaScript port of the community Google Sheet **"Let's Go
@@ -32,8 +33,9 @@ No build step, no server: open `index.html` in a browser.
    built-in sample exports are not recorded.
 3. Open a tool from the cards (or the header): **Let's Go Fishing** (`#/fishing`),
    **Bomb comparison** (`#/bombs`), **Goal ETA** (`#/goal`), **Contract planner**
-   (`#/contracts`), **Best floor** (`#/floors`, `#/floors/veins`), or **Tracker**
-   (`#/tracker`). A refresh or bookmark reopens the tool directly.
+   (`#/contracts`), **Max damage** (`#/damage`), **Best floor** (`#/floors`,
+   `#/floors/veins`), or **Tracker** (`#/tracker`). A refresh or bookmark reopens
+   the tool directly.
 4. Anything the game did not record (a few bar levels, bundles, statues, etc.) stays at 0 and is
    shown as a manual field - fill those in inside the tool.
 5. In the fishing tool, read the **Ranking** table: it is sorted best-first. `Score/gem` is the
@@ -56,16 +58,17 @@ The home page (`#/home`) is the account hub:
   The Tracker card instead shows how many snapshots are recorded.
 - **Reset** clears the saved account, the fishing tool's settings, the bomb tool's current values
   and floor/portal inputs, the goal tool's targets and measured rate, the contract planner's
-  budget, weights, and manual levels, and the Best Floor tool's saved mode and what-if stats. It
-  does **not** clear the Tracker's snapshot history; use **Clear history** on the Tracker page for
-  that.
+  budget, weights, and manual levels, the Max Damage tool's scenario and hand edits, and the Best
+  Floor tool's saved mode and what-if stats. It does **not** clear the Tracker's snapshot history;
+  use **Clear history** on the Tracker page for that.
 - Tools read the account through `window.AccountStore` (`account.js`), so future tools can be added
   without changing the import flow.
 
 Tool settings are saved automatically: the fishing tool under `lgf-optimizer-state-v1`, the goal
 tool under `obelisk-goal-v1`, the contract planner under `obelisk-contracts-v1`, the bomb tool
-under `obelisk-bombs-v1`, the Best Floor tool under `obelisk-floors-v1`, and the Tracker's
-pinned/selected stats under `obelisk-tracker-prefs-v1`. The snapshot history itself lives in
+under `obelisk-bombs-v1`, the Max Damage tool under `obelisk-damage-v1`, the Best Floor tool
+under `obelisk-floors-v1`, and the Tracker's pinned/selected stats under
+`obelisk-tracker-prefs-v1`. The snapshot history itself lives in
 IndexedDB, not local storage.
 
 The bomb tool keeps its mode, level, floor, ore and portal inputs, and keeps stats only when you
@@ -490,6 +493,73 @@ Without an account the planner uses OB 0, cap +0, and 0% cost reduction.
 - Costs, caps, and OB gates are hard-coded for v2.2.23. If the game adds levels or upgrades, extend
   `UPGRADES`, `MAX_LEVELS`, and the cost tables in `contractdata.js`.
 
+## Max Damage (`#/damage`)
+
+Shows the biggest **pickaxe** and **bomb** hit a player can reach, with damage consumables toggled
+on and the damage contracts maxed. The export is the starting point: the calculator removes the
+consumables and contract levels already baked into the exported stats, then rebuilds the numbers
+for the selected scenario.
+
+- **Consumables:** checkboxes for Apple, Pike, Juicy Plums, Rock Cake, Primal Meat, Hamburger,
+  Chaos Totem, Banana Coffee, and Blue Cow. Presets switch between **All damage items**, **At
+  export** (using `item_uptime_array`), and **None**. Golden Primal Meat (Black Hole 13+) and
+  Golden Hamburger (Blackened Basker tribute) are detected from the account; Golden Chaos Totem is
+  a manual what-if checkbox.
+- **Contracts:** **Maxed for damage** sets the eight damage upgrades to their current cap
+  (`base max + contract_cap_increase`). OB-locked upgrades stay at their current level and are
+  tagged with their OB requirement. **Current levels** keeps the exported levels. The contract
+  table shows current and maxed level, effect, and the change. Contracts completed is manual
+  because ExportStats does not record it.
+- **Results:** maximum pickaxe hit, current-setup comparison, maximum bomb hit, base damage,
+  max crit multiplier, expected hit, expected DPS, attack speed, game speed, and a crit-tier table
+  with the chance, multiplier, and damage of each outcome.
+- **Breakdowns:** the contract table and consumable table show exactly what changed. The
+  **Your stats** accordion pre-fills every damage stat from the account and keeps hand edits in
+  this browser until a new import or Reset.
+
+### Damage model
+
+The export's `pickaxe_damage` and `bomb_damage` are the final base values before crits, so the
+calculator divides out the current damage-contract factors and the consumables that were active at
+export:
+
+- **Base damage:** `export / current contract factor / active item factor`, then multiplied by the
+  selected item factor and contract factor.
+- **Rock Cake + Primal Meat:** additive within the item menu: `1 + 0.30 + 1.00` (Golden Primal
+  Meat is `+2.00`). **Hamburger** multiplies that result: `3 + 0.12 x workshop_array[22]` (Golden
+  `2x`).
+- **Crit items:** Apple adds 10 percentage points of pickaxe crit chance; Pike adds 30% crit
+  damage; Juicy Plums adds 25 percentage points of crit chance and 25% crit damage.
+- **Crit chain:** a Super crit needs a Crit, an Ultra needs a Super, and an Omega needs an Ultra.
+  The maximum hit uses the highest tier with a non-zero chance; the expected hit weights each
+  outcome by its probability.
+- **Contracts:** Pickaxe Damage, Pickaxe Crit Damage, the two per-contract upgrades, and the 1.08x
+  upgrade multiply the hit; Super/Ultra/Omega crit chance upgrades decide which tiers can trigger.
+  Chance upgrades use `base chance + amount x level`, where the base chance is the export chance
+  minus the owned contract contribution.
+- **DPS:** expected hit x attack speed x game speed. Game speed is read from the export and may
+  include the floor the export was taken on.
+- **Bomb:** `bomb_damage x (1 + bomb_additional_multiplier)` (capped at 99,999x), then the
+  consumable and bomb-contract factors and the bomb crit chain.
+
+### Caveats
+
+- The export is treated as already including the contract levels and active items it records. If
+  the game applies contract bonuses in a different way, the contract portion can differ. The
+  contract planner makes the same assumption.
+- Crit chance above 100% is capped for the expected hit; the maximum hit still uses the tier if
+  its chance is above 0.
+- Raw damage ignores Obelisk armor and ore damage-reduction modifiers. The maximum hit is the
+  damage number before those reductions.
+- Base Game Speed and Bomb Recharge contracts are not maxed because they do not change a single
+  hit's damage.
+- Maxed damage contracts respect your OB level: an upgrade above the current OB stays at its
+  current level. Edit the OB level in **Your stats** to see a future what-if.
+- Item uptime is read as `item_uptime_array[index] > 0`, following the Best Floor tool's Golden
+  Steak handling and the community damage calculator.
+- Banana Coffee's optional game-speed effect from the Cephalus idol is left inside the export's
+  game speed; DPS is therefore approximate when that idol is active.
+
 ## Tracker (`#/tracker`)
 
 The Tracker turns the shared account import into a progress history. Every successful paste,
@@ -586,6 +656,8 @@ can add it back.
 | `goals.js` | Goal ETA UI and measured-rate helper (`window.GoalTool`) |
 | `contractdata.js` | Contract levels, caps, costs, goals, ranking, and spend plans (`window.ContractData`) |
 | `contracts.js` | Contract Point Planner UI (`window.ContractTool`) |
+| `damagedata.js` | Max damage maths: consumables, crit tiers, and maxed damage contracts (`window.DamageData`) |
+| `damage.js` | Max Damage calculator UI (`window.DamageTool`) |
 | `floortables.js` | Generated ore / vein / floor-modifier tables (`window.FloorTables`) |
 | `floordata.js` | Best Floor maths ported from the sheet (`window.FloorData`) |
 | `floors.js` | Best Floor to Farm UI (`window.FloorTool`) |
@@ -602,6 +674,7 @@ can add it back.
 | `test/validate_bombs.js` | Bomb formulas, floor/portal mixes, breakpoints, and page wiring |
 | `test/validate_goal.js` | Goal ETA formulas, bar conversion, and page wiring |
 | `test/validate_contracts.js` | Contract costs, goals, ranking, plans, respec, and page wiring |
+| `test/validate_damage.js` | Max damage item factors, crit tiers, contract maxing, sample export, and page wiring |
 | `test/validate_floors.js` | Best Floor maths vs the sheet's cached values (default and loaded), manual mode, import, and page wiring |
 | `test/validate_tracker.js` | Tracker timestamps, snapshot merging, chart series, and storage |
 | `test/ui_smoke.js` | Headless UI wiring smoke test (all tools) |
@@ -615,6 +688,7 @@ node test/validate_fish.js
 node test/validate_bombs.js
 node test/validate_goal.js
 node test/validate_contracts.js
+node test/validate_damage.js
 node test/validate_floors.js
 node test/validate_tracker.js
 node test/ui_smoke.js
@@ -622,8 +696,9 @@ node test/ui_smoke.js
 
 `validate.js` checks the ported model against the spreadsheet's cached values in the default
 (empty) state; the others exercise the import mapping, the fish cost/ranking data, the bomb
-comparison, the goal ETA maths, the Best Floor maths, the contract planner's costs/plans/respec,
-the Tracker's timestamps/series/storage, and the UI wiring.
+comparison, the goal ETA maths, the contract planner's costs/plans/respec, the Max Damage item
+and contract maths, the Best Floor maths, the Tracker's timestamps/series/storage, and the UI
+wiring.
 
 ## Disclaimer
 

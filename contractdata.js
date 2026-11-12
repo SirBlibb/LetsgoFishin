@@ -520,6 +520,98 @@
     };
   }
 
+  /*
+   * Detailed damage view of the damage-related contracts.  `damageValues`
+   * above averages the pickaxe and bomb branches; this keeps them apart and
+   * also exposes the underlying chance of each crit tier so a max-hit
+   * calculator can decide which tiers can actually trigger.
+   */
+  function damageChanceInfo(index, part, levels, ctx) {
+    var up = UPGRADES[index];
+    var base = chanceBaseFor(up, part, ctx);
+    var level = levels[index];
+    var cap = capFor(index, ctx.capIncrease);
+
+    return {
+      index: index,
+      name: up.name,
+      branch: part ? part.branch : null,
+      base: base,
+      amount: up.amount,
+      level: level,
+      cap: cap,
+      chance: clamp((base + up.amount * level) / 100, 0, 1),
+      maxChance: clamp((base + up.amount * cap) / 100, 0, 1),
+      multi: chanceMultiFor(up, part, ctx)
+    };
+  }
+
+  function damageModel(levels, ctx) {
+    ctx = ctx || fromExport({});
+    var lv = normalizeLevels(levels, ctx);
+    var rows = [];
+    var pickaxe = { base: 1, critDamage: 1, chances: {} };
+    var bomb = { base: 1, chances: {} };
+
+    function addFactorRow(index) {
+      var up = UPGRADES[index];
+      var cap = capFor(index, ctx.capIncrease);
+      var factor = factorFor(up, lv[index], ctx);
+      rows.push({
+        index: index,
+        name: up.name,
+        world: up.world,
+        bonus: up.bonus,
+        kind: "factor",
+        level: lv[index],
+        cap: cap,
+        obMin: up.obMin,
+        locked: up.obMin > 0 && asNumber(ctx.obeliskLevel, 0) < up.obMin,
+        factor: factor,
+        factorAtCap: factorFor(up, cap, ctx)
+      });
+      return factor;
+    }
+
+    function addChanceRow(index, part) {
+      var info = damageChanceInfo(index, part, lv, ctx);
+      rows.push({
+        index: index,
+        name: info.name + (part ? " (" + part.branch + ")" : ""),
+        world: UPGRADES[index].world,
+        bonus: UPGRADES[index].bonus,
+        kind: "chance",
+        branch: info.branch,
+        level: info.level,
+        cap: info.cap,
+        obMin: UPGRADES[index].obMin,
+        locked: UPGRADES[index].obMin > 0 && asNumber(ctx.obeliskLevel, 0) < UPGRADES[index].obMin,
+        chance: info.chance,
+        maxChance: info.maxChance,
+        factor: chanceFactor(info.base, info.amount, info.level, info.multi),
+        factorAtCap: chanceFactor(info.base, info.amount, info.cap, info.multi)
+      });
+      return info;
+    }
+
+    [0, 6, 23].forEach(function (index) {
+      pickaxe.base *= addFactorRow(index);
+    });
+    pickaxe.critDamage = addFactorRow(5);
+
+    pickaxe.chances.super = addChanceRow(2, null);
+    pickaxe.chances.ultra = addChanceRow(13, { branch: "pickaxe" });
+    pickaxe.chances.omega = addChanceRow(22, { branch: "pickaxe" });
+
+    bomb.base = addFactorRow(10) * factorFor(UPGRADES[23], lv[23], ctx);
+    bomb.chances.ultra = addChanceRow(13, { branch: "bomb" });
+    bomb.chances.omega = addChanceRow(22, { branch: "bomb" });
+
+    rows.sort(function (a, b) { return a.index - b.index; });
+
+    return { levels: lv, pickaxe: pickaxe, bomb: bomb, rows: rows };
+  }
+
   function goalValues(levels, ctx) {
     ctx = ctx || fromExport({});
     var lv = normalizeLevels(levels, ctx);
@@ -843,6 +935,7 @@
     costAt: costAt,
     capFor: capFor,
     goalValues: goalValues,
+    damageModel: damageModel,
     rankNext: rankNext,
     planSpend: planSpend,
     fromExport: fromExport,

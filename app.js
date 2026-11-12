@@ -380,6 +380,19 @@
         : "No account yet - contract levels, caps, and OB gates can be entered by hand.";
     }
 
+    var damageBadge = document.getElementById("damage-badge");
+    if (damageBadge) {
+      damageBadge.textContent = hasAccount ? "Account loaded" : "Manual entry";
+      damageBadge.className = "badge" + (hasAccount ? " ok" : "");
+    }
+
+    var damageNote = document.getElementById("damage-account-note");
+    if (damageNote) {
+      damageNote.textContent = hasAccount
+        ? "Uses your saved account" + versionSuffix + " damage stats, consumable uptimes, and contract levels."
+        : "No account yet - enter damage stats and toggle consumables by hand.";
+    }
+
     var floorsBadge = document.getElementById("floors-badge");
     if (floorsBadge) {
       floorsBadge.textContent = hasAccount ? "Account loaded" : "Manual entry";
@@ -890,6 +903,7 @@
       if (window.BombTool) window.BombTool.refreshAccount();
       if (window.GoalTool) window.GoalTool.refreshAccount();
       if (window.ContractTool) window.ContractTool.refreshAccount();
+      if (window.DamageTool) window.DamageTool.refreshAccount();
       if (window.FloorTool) window.FloorTool.refreshAccount();
       if (window.TrackerTool) window.TrackerTool.refreshAccount();
       restoredSaved = true;
@@ -942,6 +956,7 @@
       if (window.BombTool) window.BombTool.refreshAccount();
       if (window.GoalTool) window.GoalTool.refreshAccount();
       if (window.ContractTool) window.ContractTool.refreshAccount();
+      if (window.DamageTool) window.DamageTool.refreshAccount();
       if (window.FloorTool) window.FloorTool.refreshAccount();
       if (window.TrackerTool) window.TrackerTool.refreshAccount();
       restoredSaved = true;
@@ -1005,6 +1020,7 @@
       if (window.BombTool) window.BombTool.refreshAccount();
       if (window.GoalTool) window.GoalTool.resetAll();
       if (window.ContractTool) window.ContractTool.resetAll();
+      if (window.DamageTool) window.DamageTool.resetAll();
       if (window.FloorTool) window.FloorTool.resetAll();
       if (window.TrackerTool) window.TrackerTool.refreshAccount();
       clearHistory();
@@ -1068,7 +1084,7 @@
   /* home / tool views                                                */
   /* ---------------------------------------------------------------- */
 
-  var VIEW_IDS = { home: "view-home", fishing: "view-fishing", bombs: "view-bombs", goal: "view-goal", contracts: "view-contracts", floors: "view-floors", tracker: "view-tracker" };
+  var VIEW_IDS = { home: "view-home", fishing: "view-fishing", bombs: "view-bombs", goal: "view-goal", contracts: "view-contracts", damage: "view-damage", floors: "view-floors", tracker: "view-tracker" };
 
   function routeFromHash(hash) {
     var h = String(hash || "").replace(/^#\/?/, "").toLowerCase();
@@ -1076,6 +1092,7 @@
     if (h === "bombs" || h === "bomb" || h === "bomb-comparison" || h === "transmuter") return "bombs";
     if (h === "goal" || h === "goal-eta" || h === "eta" || h === "time-to-goal") return "goal";
     if (h === "contracts" || h === "contract" || h === "contract-planner" || h === "contract-points" || h === "cp") return "contracts";
+    if (h === "damage" || h === "max-damage" || h === "maxdamage" || h === "dps" || h === "hit") return "damage";
     if (h === "floors" || h === "floor" || h === "best-floor" || h === "best-ore" || h === "best-veins" ||
         h === "farm" || h === "floors/ore" || h === "floors/veins") return "floors";
     if (h === "tracker" || h === "progress" || h === "growth" || h === "history") return "tracker";
@@ -1112,11 +1129,13 @@
             ? "Goal ETA - Time to an Ore or Bar Target"
             : view === "contracts"
               ? "Contract Point Planner - Obelisk Miner Tools"
-              : view === "floors"
-                ? "Best Floor to Farm - Obelisk Miner Tools"
-                : view === "tracker"
-                  ? "Tracker - Obelisk Miner Tools"
-                  : "Obelisk Miner Tools";
+              : view === "damage"
+                ? "Max Damage - Consumables and Damage Contracts"
+                : view === "floors"
+                  ? "Best Floor to Farm - Obelisk Miner Tools"
+                  : view === "tracker"
+                    ? "Tracker - Obelisk Miner Tools"
+                    : "Obelisk Miner Tools";
     }
   }
 
@@ -1158,6 +1177,7 @@
     if (window.BombTool) window.BombTool.init();
     if (window.GoalTool) window.GoalTool.init();
     if (window.ContractTool) window.ContractTool.init();
+    if (window.DamageTool) window.DamageTool.init();
     if (window.FloorTool) window.FloorTool.init();
     if (window.TrackerTool) window.TrackerTool.init();
 

@@ -19,6 +19,7 @@
       <a href="#/bombs" data-nav="bombs">Bomb comparison</a>
       <a href="#/goal" data-nav="goal">Goal ETA</a>
       <a href="#/contracts" data-nav="contracts">Contract planner</a>
+      <a href="#/damage" data-nav="damage">Max damage</a>
       <a href="#/floors" data-nav="floors">Best floor</a>
       <a href="#/tracker" data-nav="tracker">Tracker</a>
     </nav>
@@ -116,6 +117,21 @@
           <div class="tool-card-footer">
             <span id="contracts-account-note" class="hint"></span>
             <a class="button-link" href="#/contracts">Open tool</a>
+          </div>
+        </article>
+
+        <article class="tool-card">
+          <div class="tool-card-head">
+            <div>
+              <h3>Max Damage</h3>
+              <p class="tool-kicker">Consumables + maxed damage contracts</p>
+            </div>
+            <span id="damage-badge" class="badge">Manual entry</span>
+          </div>
+          <p>Shows the biggest pickaxe and bomb hit you can reach with damage consumables toggled on and your damage contracts maxed.</p>
+          <div class="tool-card-footer">
+            <span id="damage-account-note" class="hint"></span>
+            <a class="button-link" href="#/damage">Open tool</a>
           </div>
         </article>
 
@@ -586,6 +602,113 @@
     </section>
   </div>
 
+  <!-- ============================ DAMAGE =========================== -->
+  <div id="view-damage" class="view" hidden>
+    <section class="panel tool-header-panel">
+      <a class="back-link" href="#/home">&larr; All tools</a>
+      <div class="tool-title-row">
+        <div>
+          <h2>Max Damage <span class="title-sub">Consumables + maxed damage contracts</span></h2>
+          <p class="lead">See the biggest pickaxe and bomb hit your account can reach when every damage consumable is on and the damage contracts are maxed.</p>
+        </div>
+      </div>
+      <div class="tool-account-bar">
+        <span id="damage-account-status" class="hint"></span>
+        <button id="damage-load-sample" class="ghost" type="button">Try the v2.2.52 sample</button>
+        <a class="ghost-link" href="#/home">Change account data</a>
+      </div>
+    </section>
+
+    <section class="panel">
+      <h2>1. Scenario</h2>
+      <div class="damage-scenario">
+        <div class="damage-scenario-group">
+          <span class="field-label">Consumables</span>
+          <div class="damage-presets" role="group" aria-label="Consumable preset">
+            <button id="damage-items-all" class="ghost" type="button">All damage items</button>
+            <button id="damage-items-export" class="ghost" type="button">At export</button>
+            <button id="damage-items-none" class="ghost" type="button">None</button>
+          </div>
+        </div>
+        <div class="damage-scenario-group">
+          <span class="field-label">Contracts</span>
+          <div class="goal-mode" role="group" aria-label="Contract scenario">
+            <label class="goal-mode-option">
+              <input type="radio" id="damage-contracts-max" name="damage-contracts" value="max" checked>
+              <span>Maxed for damage</span>
+            </label>
+            <label class="goal-mode-option">
+              <input type="radio" id="damage-contracts-current" name="damage-contracts" value="current">
+              <span>Current levels</span>
+            </label>
+          </div>
+        </div>
+      </div>
+
+      <div class="goal-controls damage-controls">
+        <label class="field">
+          <span class="field-label">Contracts completed</span>
+          <input id="damage-contracts-completed" type="number" min="0" step="1" value="0">
+        </label>
+        <label class="field">
+          <span class="field-label">Contract cap increase</span>
+          <input id="damage-cap-increase" type="number" min="0" step="1" value="0">
+        </label>
+      </div>
+      <p class="hint" id="damage-scenario-note"></p>
+      <p class="hint">Contracts completed is not in ExportStats. It powers the two "+1% per Contract" damage upgrades; leave it at 0 if you do not use them. Maxed uses the current cap (base max + cap increase).</p>
+
+      <div id="damage-items" class="damage-items"></div>
+      <div id="damage-golden" class="damage-golden"></div>
+    </section>
+
+    <section class="panel results-panel">
+      <h2>2. Maximum damage</h2>
+      <div id="damage-hero" aria-live="polite"></div>
+      <div id="damage-warnings"></div>
+      <div id="damage-stats"></div>
+      <div id="damage-crit"></div>
+    </section>
+
+    <section class="panel results-panel">
+      <h2>3. Contract breakdown</h2>
+      <div id="damage-contracts"></div>
+    </section>
+
+    <section class="panel results-panel">
+      <h2>4. Consumable breakdown</h2>
+      <div id="damage-item-table"></div>
+    </section>
+
+    <section class="panel acc-panel">
+      <details class="acc" id="damage-stats-details">
+        <summary>
+          <span class="acc-title">Your stats</span>
+          <span class="acc-sub">Pre-filled from your account &ndash; edit for a what-if</span>
+          <span class="acc-icon" aria-hidden="true"></span>
+        </summary>
+        <div class="acc-body">
+          <div id="damage-stats-editor"></div>
+        </div>
+      </details>
+    </section>
+
+    <section class="panel">
+      <details>
+        <summary>How this calculator works</summary>
+        <p>The calculator starts from your exported pickaxe and bomb stats, removes the consumables and damage contracts already included in that export, then rebuilds the numbers for the selected scenario.</p>
+        <ul>
+          <li><strong>Base damage:</strong> the export's pickaxe damage is divided by the current damage-contract factor and by the consumables that were active at export. The selected consumables and contract levels are then applied.</li>
+          <li><strong>Consumables:</strong> Rock Cake (+30%) and Primal Meat (+100%, Golden +200%) add together; Hamburger multiplies that result (3.00&ndash;8.64x, Golden 6.00&ndash;17.28x). Apple, Pike, and Juicy Plums adjust crit chance and crit damage. Chaos Totem multiplies bomb damage. Banana Coffee and Blue Cow affect DPS, not the maximum hit.</li>
+          <li><strong>Contracts:</strong> the eight damage upgrades are reset to their current cap. OB-locked upgrades stay at their current level. Pickaxe Damage, Pickaxe Crit Damage, the per-contract upgrades, and the 1.08x upgrade multiply the hit; the Super/Ultra/Omega crit chance upgrades decide which tiers can trigger. Non-damage contracts are unchanged, and Base Game Speed / Bomb Recharge are not maxed because they do not change a single hit's damage.</li>
+          <li><strong>Crit chain:</strong> a Super crit needs a Crit, an Ultra needs a Super, and an Omega needs an Ultra. The maximum hit uses the highest tier with a non-zero chance. The expected hit weights every outcome by its probability.</li>
+          <li><strong>DPS:</strong> expected hit &times; attack speed &times; game speed. Game speed is read from the export and may include the floor you exported on.</li>
+        </ul>
+        <p class="hint">The export is treated as already including the contract levels and active items it records. If the game adds contract bonuses in a different way, the contract portion can differ. Raw damage ignores Obelisk armor and ore damage-reduction modifiers. Verify important decisions in-game.</p>
+      </details>
+    </section>
+  </div>
+
   <!-- ============================ FLOORS =========================== -->
   <div id="view-floors" class="view" hidden>
     <section class="panel tool-header-panel">
@@ -816,8 +939,9 @@
 <footer>
   <p>Fishing model ported from the community Google Sheet <em>Let's Go Fishing - V2.0.6</em>.
     Bomb comparison and Goal ETA use community crafting formulas and wiki bar costs; the contract
-    planner uses the wiki's contract cost tables; Best Floor to Farm is ported from the community
-    sheet <em>IOM - Best Floor To Farm V3.4.2</em> (CrisRody, Metzli, OrionAF). Not affiliated with the game. Verify before
+    planner uses the wiki's contract cost tables; Max Damage uses the wiki's item effects and
+    the same contract factors; Best Floor to Farm is ported from the community sheet
+    <em>IOM - Best Floor To Farm V3.4.2</em> (CrisRody, Metzli, OrionAF). Not affiliated with the game. Verify before
     spending gems or Contract Points.</p>
 </footer>
 
@@ -833,6 +957,8 @@
 <script src="goals.js"></script>
 <script src="contractdata.js"></script>
 <script src="contracts.js"></script>
+<script src="damagedata.js"></script>
+<script src="damage.js"></script>
 <script src="floortables.js"></script>
 <script src="floordata.js"></script>
 <script src="floors.js"></script>

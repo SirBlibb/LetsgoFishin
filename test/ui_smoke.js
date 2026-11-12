@@ -161,6 +161,8 @@ require("../bombs.js");
 require("../goals.js");
 require("../contractdata.js");
 require("../contracts.js");
+require("../damagedata.js");
+require("../damage.js");
 require("../floortables.js");
 require("../floordata.js");
 require("../floors.js");
@@ -464,6 +466,8 @@ check("account record keeps the raw export", !!storedAccount && storedAccount.ra
 check("account summary rendered", byId["account-summary"].children.length > 0);
 check("fishing tool badge shows the account", byId["fishing-badge"].textContent === "Account loaded");
 check("bomb tool badge shows the account", byId["bombs-badge"].textContent === "Account loaded");
+check("damage tool badge shows the account", byId["damage-badge"].textContent === "Account loaded");
+check("damage tool loads the account", global.DamageTool.getState().source === "account");
 check("bomb stats loaded from account", byId["bomb-stats-source"].textContent.indexOf("From account (15/15 fields)") >= 0);
 check("bomb bar output loaded from account", byId["bomb-stat-barOutputMulti"].value.indexOf("21.568") === 0);
 check("bomb stats warning cleared", byId["bomb-stats-warning"].textContent === "");
@@ -919,6 +923,80 @@ fire(byId["btn-clear"], "click");
 var fs4 = global.FloorTool.getState();
 check("floors reset restores defaults", fs4.mode === "ore" && fs4.ore === "Tin" && fs4.account === null &&
   Object.keys(fs4.overrides).length === 0 && fs4.voidMode === "auto");
+
+/* ---- max damage calculator --------------------------------------- */
+check("damage view hidden by default", byId["view-damage"].hidden === true);
+check("damage badge is manual entry", byId["damage-badge"].textContent === "Manual entry");
+check("damage starts with maxed contracts", global.DamageTool.getState().contractMode === "maxed");
+check("damage starts with all damage items on",
+  global.DamageData.ITEMS.every(function (item) { return global.DamageTool.getState().items[item.id] === true; }));
+check("damage item cards render", byId["damage-items"].children.length === 9);
+check("damage golden controls render", byId["damage-golden"].children.length === 4);
+check("damage hero renders", byId["damage-hero"].children.length >= 2);
+check("damage stat editor renders three groups", byId["damage-stats-editor"].children.length === 3);
+check("damage contract table has 10 rows",
+  byId["damage-contracts"].children[0].children[0].children[1].children.length === 10);
+check("damage item table has 9 rows",
+  byId["damage-item-table"].children[0].children[0].children[1].children.length === 9);
+
+var damageAllMax = global.DamageTool.getState().result.scenario.pickaxe.hit.max;
+fire(byId["damage-items-none"], "click");
+var damageNoneMax = global.DamageTool.getState().result.scenario.pickaxe.hit.max;
+check("damage none preset turns every item off",
+  global.DamageData.ITEMS.every(function (item) { return global.DamageTool.getState().items[item.id] === false; }));
+check("damage consumables increase the maximum hit", damageAllMax > damageNoneMax);
+
+fire(byId["damage-load-sample"], "click");
+check("damage sample loads into the tool", global.DamageTool.getState().source === "account");
+check("damage sample detects active consumables",
+  global.DamageTool.getState().result.activeItems.apple === true &&
+  global.DamageTool.getState().result.activeItems.rockCake === false);
+var damageSampleMax = global.DamageTool.getState().result.scenario.pickaxe.hit.max;
+check("damage sample max hit beats the current hit",
+  damageSampleMax > global.DamageTool.getState().result.current.pickaxe.hit.max);
+check("damage sample contract table shows the maxed cap",
+  byId["damage-contracts"].children[0].children[0].children[1].children[0].children[2].textContent === "10");
+
+var damageCurrentRadio = byId["damage-contracts-current"];
+damageCurrentRadio.checked = true;
+fire(damageCurrentRadio, "change");
+check("damage current contract mode updates the state", global.DamageTool.getState().contractMode === "current");
+check("damage current contract mode lowers the max hit",
+  global.DamageTool.getState().result.scenario.pickaxe.hit.max < damageSampleMax);
+var damageMaxRadio = byId["damage-contracts-max"];
+damageMaxRadio.checked = true;
+fire(damageMaxRadio, "change");
+check("damage maxed contract mode restores the state", global.DamageTool.getState().contractMode === "maxed");
+
+var damageContracts = byId["damage-contracts-completed"];
+damageContracts.value = "100";
+fire(damageContracts, "input");
+check("damage contracts completed updates the state", global.DamageTool.getState().contractsCompleted === 100);
+check("damage per-contract upgrades grow with completions",
+  global.DamageTool.getState().result.scenario.pickaxe.contractBaseFactor > 1);
+
+/* damage stat edits survive a reload and clear on a new import */
+fire(byId["btn-sample"], "click");
+check("damage import loads the v2.2.20 account",
+  global.DamageTool.getState().source === "account" &&
+  global.DamageTool.getState().account.version === "v2.2.20");
+var damageStat = byId["damage-stat-pickaxe_damage"];
+damageStat.value = "12345";
+fire(damageStat, "input");
+check("damage stat edit marks the account as edited",
+  global.DamageTool.getState().source === "account-edited");
+check("damage stat edit is stored as an override",
+  global.DamageTool.getState().overrides.pickaxe_damage === 12345);
+delete require.cache[require.resolve("../damage.js")];
+require("../damage.js");
+global.DamageTool.init();
+check("damage reload keeps the stat edit",
+  global.DamageTool.getState().overrides.pickaxe_damage === 12345 &&
+  global.DamageTool.getState().source === "account-edited");
+fire(byId["btn-sample-new"], "click");
+check("a new import clears the damage stat edits",
+  Object.keys(global.DamageTool.getState().overrides).length === 0 &&
+  global.DamageTool.getState().source === "account");
 
 console.log("rows: " + rows.length + " | rankable: " + rankable + " | top: " + topName + " | badges: " + badges);
 console.log(fails === 0 ? "UI SMOKE OK" : fails + " FAILED");

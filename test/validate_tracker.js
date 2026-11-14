@@ -223,6 +223,9 @@ check("log ticks cover the powers", logTicks.indexOf(1) >= 0 && logTicks.indexOf
 check("large numbers use suffixes", TD.formatValue(1500) === "1.50k" && TD.formatValue(1500000) === "1.50m");
 check("boundary values round to the next suffix",
   TD.formatValue(999999) === "1.00m" && TD.formatValue(999.9) === "1.00k");
+check("suffixes match the game's notation",
+  TD.formatValue(1.8e15) === "1.80q" && TD.formatValue(1.8e27) === "1.80oc" &&
+  TD.formatValue(1.8e30) === "1.80no");
 check("normalized indices stay percentages", TD.formatIndex(1500) === "1,500%");
 check("zero formats cleanly", TD.formatValue(0) === "0");
 check("bytes format for the table", TD.formatSize(2048) === "2.0 KB");

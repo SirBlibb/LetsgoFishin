@@ -677,7 +677,7 @@
     };
   }
 
-  var SUFFIX = ["", "k", "m", "b", "t", "qi", "sx", "sp", "oc", "no", "dc", "ud", "dd", "td"];
+  var SUFFIX = ["", "k", "m", "b", "t", "q", "qi", "sx", "sp", "oc", "no", "dc", "ud", "dd", "td"];
 
   function formatValue(n) {
     if (n === null || n === undefined || !isFinite(n)) return "-";

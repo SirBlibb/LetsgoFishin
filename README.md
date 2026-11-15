@@ -3,6 +3,7 @@
 A static website with a shared **account importer** plus tools for *Idle Obelisk Miner*:
 
 - **Let's Go Fishing** ranks every fishing gem upgrade by how much fish/time it adds **per gem you spend**.
+- **Legendary Fish** estimates the average time to catch a dock's legendary fish from dock power, catch chance, tick speed, double / triple tick chance, and the Angler drone.
 - **Bomb Comparison** works out whether the **Bomb of Plenty** or **Transmuter Bomb** produces more bars at a chosen bar level, or across a dungeon floor's Void Drone portal mix.
 - **Goal ETA** estimates how long an ore or bar target will take from a measured ore/hour rate, with progress, milestones, and the rate a deadline needs.
 - **Best Floor to Farm** ranks all 132 dungeon floors for any ore or vein, with Void Drone and bomb advice, warnings and a what-if stats editor.
@@ -32,8 +33,8 @@ No build step, no server: open `index.html` in a browser.
    Every successful real import is also recorded as a dated snapshot in the **Tracker**; the
    built-in sample exports are not recorded.
 3. Open a tool from the cards (or the header): **Let's Go Fishing** (`#/fishing`),
-   **Bomb comparison** (`#/bombs`), **Goal ETA** (`#/goal`), **Contract planner**
-   (`#/contracts`), **Max damage** (`#/damage`), **Best floor** (`#/floors`,
+   **Legendary Fish** (`#/legendary`), **Bomb comparison** (`#/bombs`), **Goal ETA** (`#/goal`),
+   **Contract planner** (`#/contracts`), **Max damage** (`#/damage`), **Best floor** (`#/floors`,
    `#/floors/veins`), or **Tracker** (`#/tracker`). A refresh or bookmark reopens
    the tool directly.
 4. Anything the game did not record (a few bar levels, bundles, statues, etc.) stays at 0 and is
@@ -57,19 +58,20 @@ The home page (`#/home`) is the account hub:
 - Each analysis tool card shows whether it will use the saved account or fall back to manual entry.
   The Tracker card instead shows how many snapshots are recorded.
 - **Reset** clears the saved account, the fishing tool's settings, the bomb tool's current values
-  and floor/portal inputs, the goal tool's targets and measured rate, the contract planner's
-  budget, weights, and manual levels, the Max Damage tool's scenario and hand edits, and the Best
-  Floor tool's saved mode and what-if stats. It does **not** clear the Tracker's snapshot history;
-  use **Clear history** on the Tracker page for that.
+  and floor/portal inputs, the goal tool's targets and measured rate, the legendary fish tool's
+  dock and power/tick values, the contract planner's budget, weights, and manual levels, the Max
+  Damage tool's scenario and hand edits, and the Best Floor tool's saved mode and what-if stats.
+  It does **not** clear the Tracker's snapshot history; use **Clear history** on the Tracker page
+  for that.
 - Tools read the account through `window.AccountStore` (`account.js`), so future tools can be added
   without changing the import flow.
 
-Tool settings are saved automatically: the fishing tool under `lgf-optimizer-state-v1`, the goal
-tool under `obelisk-goal-v1`, the contract planner under `obelisk-contracts-v1`, the bomb tool
-under `obelisk-bombs-v1`, the Max Damage tool under `obelisk-damage-v1`, the Best Floor tool
-under `obelisk-floors-v1`, and the Tracker's pinned/selected stats under
-`obelisk-tracker-prefs-v1`. The snapshot history itself lives in
-IndexedDB, not local storage.
+Tool settings are saved automatically: the fishing tool under `lgf-optimizer-state-v1`, the
+legendary fish tool under `obelisk-legendary-v1`, the goal tool under `obelisk-goal-v1`, the
+contract planner under `obelisk-contracts-v1`, the bomb tool under `obelisk-bombs-v1`, the Max
+Damage tool under `obelisk-damage-v1`, the Best Floor tool under `obelisk-floors-v1`, and the
+Tracker's pinned/selected stats under `obelisk-tracker-prefs-v1`. The snapshot history itself
+lives in IndexedDB, not local storage.
 
 The bomb tool keeps its mode, level, floor, ore and portal inputs, and keeps stats only when you
 edited them by hand; untouched stats are re-read from the account each time.
@@ -153,6 +155,69 @@ The *Fishing - Upgrades* rows (3-20) are bought with **fish**, not gems, so they
 - Some upgrades only do something in the right context (Shiny Multiplier needs a super-shiny
   chance > 0; Tier 2 Dock Power needs a Tier-2 dock selected). Those rows read
   "No direct fish/time change" until your state makes them matter.
+
+## Legendary Fish (`#/legendary`)
+
+Estimates how long a legendary fish takes on average. Pick the dock, and the tool turns your
+fishing power and tick stats into dock fills per hour and a legendary chance per fill.
+
+- **Dock and eligibility** sets the target, the ticks required for one fill, and whether all four
+  polychrome cards are confirmed. With an account loaded, the tick requirement comes from
+  `fishing_enhance_array[10]` (Tier 2 Dock Ticks), the Motley School skill, and the Abyss tribute.
+- **Dock power** uses the export's rod power, drone capacity, drone base power, drone multiplier,
+  and Tier 2 dock multiplier. Every fishing drone is assumed assigned to the selected dock; lower
+  the count if you split them.
+- **Tick speed** uses the tick reduction, double / triple / 5x tick chances, and an optional 3x
+  tick buff. The expected ticks per tick event uses the fishing optimizer's `tickPoly` formula.
+- **Angler drone** adds passive ticks while equipped and a legendary chance bonus while fuelled.
+  The export's Angler flags, grade, and suit upgrade level pre-fill it.
+- **Results** show the average, median, 90% / 95% / 99% times, the chance by seven time horizons,
+  and a fastest-first table for every dock.
+
+### Formulas
+
+- **Dock power:** `(rod power + drones × drone base power × drone multiplier) × Tier 2 dock power`.
+  The Tier 2 multiplier only applies to Cave, Volcano, Sky, Solaris, and Galaxy.
+- **Catch chance:** `100 × dock power ÷ last-fish power rating`, capped at 999%.
+- **Legendary steps:** `min(9, floor(catch chance ÷ 100))`. The dock also needs all four
+  polychrome cards. Each step is a 1/150,000 base chance per dock fill.
+- **Angler bonus:** while equipped and fuelled, `angler factor = 1 + 0.02 × (grade + 1)`, so the
+  legendary chance becomes `steps × angler factor ÷ 150,000`. At the highest grade the
+  denominator is about 81,000.
+- **Ticks per event:** double, triple, and 5x procs are independent and stack, including 2×3=6,
+  2×5=10, 3×5=15, and all three for 30 ticks.
+- **Angler ticks:** the suit gives 2 ticks per cycle. While fuelled it also has a 1% chance per
+  cycle of `6 × (grade + 1)` extra ticks, so its expected rate is
+  `(2 + 1% × 6 × (grade + 1)) ÷ cycle seconds`, where the cycle is
+  `1140 − 40 × suit level` seconds (real time).
+- **Tick rate:** `tick time = (60 − tick reduction) ÷ (3 if the 3x buff is on)`, and
+  `ticks/second = ticks per event ÷ tick time + Angler passive ticks/second`.
+- **Dock fills:** `fills/second = ticks/second ÷ ticks required per fill`.
+- **Average time:** `1 ÷ (fills/second × legendary chance per fill)`. Median and percentile times
+  use the geometric distribution, `t = ln(1 − q) ÷ (fills/second × ln(1 − chance per fill))`.
+
+### Assumptions and caveats
+
+- The fisher and every fishing drone are assumed to be on the selected dock, which gives the
+  fastest possible rate for that dock. The all-docks table repeats this assumption for each dock,
+  so it compares one dock at a time rather than all docks being fished at once.
+- Catch chance is capped at 999%, and the legendary steps stop at 9 (900%). A 1,999% catch chance
+  is still 9/150,000.
+- Game speed does not affect fishing. Offline ticks are treated exactly like online ticks, and tick
+  overflow carries into the next dock fill.
+- The Angler bonus only applies while fuelled. Its passive and extra ticks are modelled in real
+  time from the suit's cycle; some sources report drone ticks scale with game speed, which is not
+  included. The legendary bonus is modelled as the wiki's multiplicative denominator reduction
+  (`150,000 ÷ 1.86 ≈ 81,000` at max); some community calculators treat it as a flat reduction
+  instead. The 3x tick buff is temporary, so it is off by default for a long-run average.
+- The result is a long-run average and a set of odds, not a guarantee. Individual catches follow a
+  geometric distribution, so a fish can arrive much earlier or later than the average. Legendary
+  fish odds may have hidden account-seeded behaviour or may change between game versions; check
+  important decisions in-game.
+
+The dock ratings, legendary names, and base tick requirements come from the wiki's
+[*Fishing*](https://shminer.miraheze.org/wiki/Fishing) and
+[*Drones*](https://shminer.miraheze.org/wiki/Drones) pages.
 
 ## Bomb of Plenty vs Transmuter (`#/bombs`)
 
@@ -643,9 +708,11 @@ can add it back.
 
 | File | Purpose |
 | --- | --- |
-| `index.html` | Home page + fishing, bomb, goal, contract, Best Floor, and Tracker tool shells |
+| `index.html` | Home page + fishing, legendary, bomb, goal, contract, Max Damage, Best Floor, and Tracker tool shells |
 | `styles.css` | Styling |
 | `model.js` | The ported fishing model (`window.FishModel`) |
+| `legendarydata.js` | Legendary fish power, catch chance, legendary steps, tick rate, and distribution maths (`window.LegendaryData`) |
+| `legendary.js` | Legendary Fish calculator UI (`window.LegendaryTool`) |
 | `data.js` | Field labels/limits (`window.UI_SPEC`) |
 | `fishcosts.js` | Fish-upgrade cost tables + fish power ratings (`window.FISH_DATA`) |
 | `exportstats.js` | ExportStats -> inputs mapper (`window.ExportStats`) |
@@ -670,6 +737,7 @@ can add it back.
 | `sample_v2252.js` | A v2.2.52 export (`window.SAMPLE_EXPORT_V2252`), loaded by **Load v2.2.52 sample** |
 | `test/validate.js` | Model vs. the sheet's cached default values |
 | `test/validate_export.js` | Export mapping + full-sample run |
+| `test/validate_legendary.js` | Legendary fish power, steps, Angler, tick, distribution, and page wiring |
 | `test/validate_fish.js` | Fish data shape + fish ranking behaviour |
 | `test/validate_bombs.js` | Bomb formulas, floor/portal mixes, breakpoints, and page wiring |
 | `test/validate_goal.js` | Goal ETA formulas, bar conversion, and page wiring |
@@ -685,6 +753,7 @@ can add it back.
 node test/validate.js
 node test/validate_export.js
 node test/validate_fish.js
+node test/validate_legendary.js
 node test/validate_bombs.js
 node test/validate_goal.js
 node test/validate_contracts.js
@@ -695,10 +764,10 @@ node test/ui_smoke.js
 ```
 
 `validate.js` checks the ported model against the spreadsheet's cached values in the default
-(empty) state; the others exercise the import mapping, the fish cost/ranking data, the bomb
-comparison, the goal ETA maths, the contract planner's costs/plans/respec, the Max Damage item
-and contract maths, the Best Floor maths, the Tracker's timestamps/series/storage, and the UI
-wiring.
+(empty) state; the others exercise the import mapping, the fish cost/ranking data, the legendary
+fish power/tick/distribution maths, the bomb comparison, the goal ETA maths, the contract planner's
+costs/plans/respec, the Max Damage item and contract maths, the Best Floor maths, the Tracker's
+timestamps/series/storage, and the UI wiring.
 
 ## Disclaimer
 

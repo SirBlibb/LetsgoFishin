@@ -327,6 +327,26 @@
           : "No account JSON loaded - enter values manually, or import one on the home page.");
     }
 
+    var legendaryBadge = document.getElementById("legendary-badge");
+    if (legendaryBadge) {
+      legendaryBadge.textContent = hasAccount ? "Account loaded" : "Manual entry";
+      legendaryBadge.className = "badge" + (hasAccount ? " ok" : "");
+    }
+
+    var legendaryNote = document.getElementById("legendary-account-note");
+    if (legendaryNote) {
+      legendaryNote.textContent = hasAccount
+        ? "Uses your saved account" + versionSuffix + " fishing power, drone, tick, and Angler stats."
+        : "No account yet - enter rod / drone power and tick stats by hand.";
+    }
+
+    var legendaryStatus = document.getElementById("legendary-account-status");
+    if (legendaryStatus) {
+      legendaryStatus.textContent = hasAccount
+        ? "Using your saved account" + versionSuffix + ". Drones are assumed assigned to the selected dock."
+        : "No account JSON loaded - enter dock power and tick stats manually, or import one on the home page.";
+    }
+
     var bombBadge = document.getElementById("bombs-badge");
     if (bombBadge) {
       bombBadge.textContent = hasAccount ? "Account loaded" : "Manual entry";
@@ -902,6 +922,7 @@
       if (ACCOUNT) ACCOUNT.save(accountRecord);
       if (window.BombTool) window.BombTool.refreshAccount();
       if (window.GoalTool) window.GoalTool.refreshAccount();
+      if (window.LegendaryTool) window.LegendaryTool.refreshAccount();
       if (window.ContractTool) window.ContractTool.refreshAccount();
       if (window.DamageTool) window.DamageTool.refreshAccount();
       if (window.FloorTool) window.FloorTool.refreshAccount();
@@ -955,6 +976,7 @@
       if (ACCOUNT) ACCOUNT.save(accountRecord);
       if (window.BombTool) window.BombTool.refreshAccount();
       if (window.GoalTool) window.GoalTool.refreshAccount();
+      if (window.LegendaryTool) window.LegendaryTool.refreshAccount();
       if (window.ContractTool) window.ContractTool.refreshAccount();
       if (window.DamageTool) window.DamageTool.refreshAccount();
       if (window.FloorTool) window.FloorTool.refreshAccount();
@@ -1019,6 +1041,7 @@
       if (ACCOUNT) ACCOUNT.clear();
       if (window.BombTool) window.BombTool.refreshAccount();
       if (window.GoalTool) window.GoalTool.resetAll();
+      if (window.LegendaryTool) window.LegendaryTool.resetAll();
       if (window.ContractTool) window.ContractTool.resetAll();
       if (window.DamageTool) window.DamageTool.resetAll();
       if (window.FloorTool) window.FloorTool.resetAll();
@@ -1084,11 +1107,12 @@
   /* home / tool views                                                */
   /* ---------------------------------------------------------------- */
 
-  var VIEW_IDS = { home: "view-home", fishing: "view-fishing", bombs: "view-bombs", goal: "view-goal", contracts: "view-contracts", damage: "view-damage", floors: "view-floors", tracker: "view-tracker" };
+  var VIEW_IDS = { home: "view-home", fishing: "view-fishing", legendary: "view-legendary", bombs: "view-bombs", goal: "view-goal", contracts: "view-contracts", damage: "view-damage", floors: "view-floors", tracker: "view-tracker" };
 
   function routeFromHash(hash) {
     var h = String(hash || "").replace(/^#\/?/, "").toLowerCase();
     if (h === "fishing" || h === "fishing-optimizer") return "fishing";
+    if (h === "legendary" || h === "legendary-fish" || h === "legend" || h === "leg-fish" || h === "angler") return "legendary";
     if (h === "bombs" || h === "bomb" || h === "bomb-comparison" || h === "transmuter") return "bombs";
     if (h === "goal" || h === "goal-eta" || h === "eta" || h === "time-to-goal") return "goal";
     if (h === "contracts" || h === "contract" || h === "contract-planner" || h === "contract-points" || h === "cp") return "contracts";
@@ -1123,19 +1147,21 @@
     if (document.title !== undefined) {
       document.title = view === "fishing"
         ? "Let's Go Fishing - Gem Upgrade Optimizer"
-        : view === "bombs"
-          ? "Bomb of Plenty vs Transmuter - Obelisk Miner Tools"
-          : view === "goal"
-            ? "Goal ETA - Time to an Ore or Bar Target"
-            : view === "contracts"
-              ? "Contract Point Planner - Obelisk Miner Tools"
-              : view === "damage"
-                ? "Max Damage - Consumables and Damage Contracts"
-                : view === "floors"
-                  ? "Best Floor to Farm - Obelisk Miner Tools"
-                  : view === "tracker"
-                    ? "Tracker - Obelisk Miner Tools"
-                    : "Obelisk Miner Tools";
+        : view === "legendary"
+          ? "Legendary Fish - Average Catch Time"
+          : view === "bombs"
+            ? "Bomb of Plenty vs Transmuter - Obelisk Miner Tools"
+            : view === "goal"
+              ? "Goal ETA - Time to an Ore or Bar Target"
+              : view === "contracts"
+                ? "Contract Point Planner - Obelisk Miner Tools"
+                : view === "damage"
+                  ? "Max Damage - Consumables and Damage Contracts"
+                  : view === "floors"
+                    ? "Best Floor to Farm - Obelisk Miner Tools"
+                    : view === "tracker"
+                      ? "Tracker - Obelisk Miner Tools"
+                      : "Obelisk Miner Tools";
     }
   }
 
@@ -1176,6 +1202,7 @@
     renderAccountSummary();
     if (window.BombTool) window.BombTool.init();
     if (window.GoalTool) window.GoalTool.init();
+    if (window.LegendaryTool) window.LegendaryTool.init();
     if (window.ContractTool) window.ContractTool.init();
     if (window.DamageTool) window.DamageTool.init();
     if (window.FloorTool) window.FloorTool.init();

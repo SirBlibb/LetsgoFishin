@@ -113,6 +113,12 @@ function trackerSnapshotRowsOf() {
   return table.children[1].children;
 }
 
+function legendaryDockRowsOf() {
+  var root = byId["legendary-docks"];
+  var table = root.children[0].children[0]; // .table-scroll > table
+  return table.children[1].children;
+}
+
 function countTags(node, tag) {
   var count = node && node.tagName === tag ? 1 : 0;
   (node && node.children ? node.children : []).forEach(function (child) {
@@ -152,6 +158,7 @@ require("../model.js");
 require("../data.js");
 require("../fishcosts.js");
 require("../exportstats.js");
+require("../legendarydata.js");
 require("../account.js");
 require("../trackerdata.js");
 require("../sample.js");
@@ -159,6 +166,7 @@ require("../bombdata.js");
 require("../goaldata.js");
 require("../bombs.js");
 require("../goals.js");
+require("../legendary.js");
 require("../contractdata.js");
 require("../contracts.js");
 require("../damagedata.js");
@@ -228,6 +236,30 @@ check("goal stats show 9 crafting fields", byId["goal-stats"].children.length ==
 check("goal stats include bar output multiplier", !!byId["goal-stat-barOutputMulti"]);
 check("goal stats show defaults", byId["goal-stats-source"].textContent.indexOf("Defaults") >= 0);
 check("goal asks for a rate", byId["goal-eta-detail"].textContent.indexOf("Enter your ore per hour") >= 0);
+
+check("legendary view hidden by default", byId["view-legendary"].hidden === true);
+check("legendary badge is manual entry", byId["legendary-badge"].textContent === "Manual entry");
+check("legendary starts on Lake", global.LegendaryTool.getState().dock === "Lake");
+check("legendary starts with auto ticks", global.LegendaryTool.getState().ticksAuto === true);
+check("legendary renders a hero", byId["legendary-hero"].children.length > 0);
+check("legendary renders 11 dock rows", legendaryDockRowsOf().length === 11);
+check("legendary timeline asks for 100% first",
+  nodeText(byId["legendary-timeline"]).indexOf("100% catch chance") >= 0);
+check("legendary account status renders",
+  byId["legendary-account-status"].textContent.indexOf("No account") >= 0 ||
+  byId["legendary-account-status"].textContent.indexOf("Manual") >= 0);
+
+var legendaryRod = byId["legendary-rodPower"];
+legendaryRod.value = "49000";
+fire(legendaryRod, "input");
+var legendaryPoly = byId["legendary-poly"];
+legendaryPoly.checked = true;
+fire(legendaryPoly, "change");
+check("legendary rod power updates the state", global.LegendaryTool.getState().rodPower === 49000);
+check("legendary poly checkbox updates the state", global.LegendaryTool.getState().polyCards === true);
+check("legendary hero renders an average", nodeText(byId["legendary-hero"]).indexOf("Average time to catch") >= 0);
+check("legendary selected dock row is highlighted",
+  legendaryDockRowsOf().some(function (tr) { return tr.className.indexOf("legendary-selected") >= 0; }));
 
 check("contracts view hidden by default", byId["view-contracts"].hidden === true);
 check("contract badge is manual entry", byId["contracts-badge"].textContent === "Manual entry");
@@ -482,6 +514,19 @@ check("goal stats loaded from account", byId["goal-stats-source"].textContent.in
 check("goal bar output loaded from account", byId["goal-stat-barOutputMulti"].value.indexOf("21.568") === 0);
 check("goal stats warning cleared", byId["goal-stats-warning"].textContent === "");
 check("goal account status names the account", byId["goal-account-status"].textContent.indexOf("Using your saved account") >= 0);
+check("legendary badge shows the account", byId["legendary-badge"].textContent === "Account loaded");
+check("legendary status names the account",
+  byId["legendary-account-status"].textContent.indexOf("Using your saved account") >= 0);
+check("legendary tool loads the account",
+  global.LegendaryTool.getState().source === "account" &&
+  Math.abs(global.LegendaryTool.getState().rodPower - 441976.14576897986) < 0.01);
+check("legendary tool loads the account tick stats",
+  global.LegendaryTool.getState().tickReduction === 52 &&
+  global.LegendaryTool.getState().doubleTick === 62.5 &&
+  global.LegendaryTool.getState().tripleTick === 54.75);
+check("legendary tool sees the account poly cards",
+  global.LegendaryTool.getState().polyByDock.Lake === true &&
+  global.LegendaryTool.getState().polyByDock.Galaxy === true);
 
 check("contract badge shows the account", byId["contracts-badge"].textContent === "Account loaded");
 check("contract planner loads the account", global.ContractTool.getState().source === "account" &&
@@ -845,6 +890,10 @@ check("contract reset leaves an empty plan",
 check("contract reset restores the ranking",
   contractRankingRowsOf().length === 34 &&
   contractRankingRowsOf()[0].children[1].textContent.slice(3) === "Golden Floor Multiplier");
+check("legendary reset returns to manual entry", byId["legendary-badge"].textContent === "Manual entry");
+check("legendary reset restores Lake", global.LegendaryTool.getState().dock === "Lake");
+check("legendary reset clears the rod power", global.LegendaryTool.getState().rodPower === 0);
+check("legendary reset restores auto ticks", global.LegendaryTool.getState().ticksAuto === true);
 check("contract reset restores the ranking view", global.ContractTool.getState().view === "ranking" &&
   byId["contracts-ranking"].hidden === false && byId["contracts-summary"].hidden === true);
 var storedContract = JSON.parse(global.localStorage.getItem("obelisk-contracts-v1"));
@@ -997,6 +1046,20 @@ fire(byId["btn-sample-new"], "click");
 check("a new import clears the damage stat edits",
   Object.keys(global.DamageTool.getState().overrides).length === 0 &&
   global.DamageTool.getState().source === "account");
+check("legendary tool follows the newer import",
+  global.LegendaryTool.getState().source === "account" &&
+  Math.abs(global.LegendaryTool.getState().rodPower - 86007.636) < 0.01);
+check("legendary sample hides the sample button", byId["legendary-loadSample"].hidden === true);
+
+/* ---- legendary route ---------------------------------------------- */
+global.window.location = { hash: "#/legendary" };
+delete require.cache[require.resolve("../app.js")];
+require("../app.js");
+check("legendary route shows the legendary view",
+  byId["view-legendary"].hidden === false && byId["view-home"].hidden === true);
+check("legendary route sets the page title",
+  global.document.title === "Legendary Fish - Average Catch Time");
+check("legendary route keeps the dock table", legendaryDockRowsOf().length === 11);
 
 console.log("rows: " + rows.length + " | rankable: " + rankable + " | top: " + topName + " | badges: " + badges);
 console.log(fails === 0 ? "UI SMOKE OK" : fails + " FAILED");

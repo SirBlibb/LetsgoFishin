@@ -16,6 +16,7 @@
     <nav class="site-nav" aria-label="Tools">
       <a href="#/home" data-nav="home">Home</a>
       <a href="#/fishing" data-nav="fishing">Fishing optimizer</a>
+      <a href="#/legendary" data-nav="legendary">Legendary fish</a>
       <a href="#/bombs" data-nav="bombs">Bomb comparison</a>
       <a href="#/goal" data-nav="goal">Goal ETA</a>
       <a href="#/contracts" data-nav="contracts">Contract planner</a>
@@ -72,6 +73,21 @@
           <div class="tool-card-footer">
             <span id="fishing-account-note" class="hint"></span>
             <a class="button-link" href="#/fishing">Open tool</a>
+          </div>
+        </article>
+
+        <article class="tool-card">
+          <div class="tool-card-head">
+            <div>
+              <h3>Legendary Fish</h3>
+              <p class="tool-kicker">Average time to catch one</p>
+            </div>
+            <span id="legendary-badge" class="badge">Manual entry</span>
+          </div>
+          <p>Estimates the average time to catch a dock's legendary fish from your rod and drone power, catch chance, tick speed, double / triple tick chance, and the Angler drone.</p>
+          <div class="tool-card-footer">
+            <span id="legendary-account-note" class="hint"></span>
+            <a class="button-link" href="#/legendary">Open tool</a>
           </div>
         </article>
 
@@ -234,6 +250,185 @@
     <section class="panel results-panel">
       <h2>6. Fish upgrade ranking (bought with fish)</h2>
       <div id="fish-results"></div>
+    </section>
+  </div>
+
+  <!-- ========================== LEGENDARY ========================= -->
+  <div id="view-legendary" class="view" hidden>
+    <section class="panel tool-header-panel">
+      <a class="back-link" href="#/home">&larr; All tools</a>
+      <div class="tool-title-row">
+        <div>
+          <h2>Legendary Fish <span class="title-sub">Average time to catch one</span></h2>
+          <p class="lead">Estimate the average time to catch a dock's legendary fish from dock power, catch chance, tick speed, double / triple tick chance, and the Angler drone.</p>
+        </div>
+      </div>
+      <div class="tool-account-bar">
+        <span id="legendary-account-status" class="hint"></span>
+        <button id="legendary-loadSample" class="ghost" type="button">Try the v2.2.52 sample</button>
+        <a class="ghost-link" href="#/home">Change account data</a>
+      </div>
+    </section>
+
+    <section class="panel">
+      <h2>1. Dock and eligibility</h2>
+      <div class="goal-controls">
+        <label class="field">
+          <span class="field-label">Dock</span>
+          <select id="legendary-dock"></select>
+        </label>
+        <label class="field">
+          <span class="field-label">Ticks required per fill</span>
+          <input id="legendary-ticks" type="number" min="1" step="1" value="5">
+        </label>
+        <label class="field legendary-field-check">
+          <span class="field-label">&nbsp;</span>
+          <span class="legendary-check">
+            <input id="legendary-ticksAuto" type="checkbox" checked>
+            <span>Auto from my upgrades</span>
+          </span>
+        </label>
+        <label class="field legendary-field-check">
+          <span class="field-label">&nbsp;</span>
+          <span class="legendary-check">
+            <input id="legendary-poly" type="checkbox">
+            <span>All 4 polychrome cards</span>
+          </span>
+        </label>
+      </div>
+      <p id="legendary-dockNote" class="hint"></p>
+    </section>
+
+    <section class="panel">
+      <h2>2. Dock power</h2>
+      <div class="goal-controls">
+        <label class="field">
+          <span class="field-label">Fishing rod power</span>
+          <input id="legendary-rodPower" type="number" min="0" step="any" value="0">
+        </label>
+        <label class="field">
+          <span class="field-label">Fishing drones assigned</span>
+          <input id="legendary-drones" type="number" min="0" step="1" value="0">
+        </label>
+        <label class="field">
+          <span class="field-label">Drone base power</span>
+          <input id="legendary-droneBase" type="number" min="0" step="any" value="0">
+        </label>
+        <label class="field">
+          <span class="field-label">Drone power multiplier (x)</span>
+          <input id="legendary-droneMulti" type="number" min="0" step="any" value="1">
+        </label>
+        <label class="field">
+          <span class="field-label">Tier 2 dock power (x)</span>
+          <input id="legendary-tier2" type="number" min="0" step="any" value="1">
+        </label>
+      </div>
+      <div class="legendary-checks">
+        <label class="legendary-check">
+          <input id="legendary-rodAssigned" type="checkbox" checked>
+          <span>Fisher (rod) is on this dock</span>
+        </label>
+      </div>
+      <p id="legendary-powerNote" class="hint"></p>
+    </section>
+
+    <section class="panel">
+      <h2>3. Tick speed</h2>
+      <div class="goal-controls">
+        <label class="field">
+          <span class="field-label">Fishing tick reduction (s)</span>
+          <input id="legendary-tickReduction" type="number" min="0" step="any" value="0">
+        </label>
+        <label class="field">
+          <span class="field-label">Double tick chance (%)</span>
+          <input id="legendary-doubleTick" type="number" min="0" max="100" step="any" value="0">
+        </label>
+        <label class="field">
+          <span class="field-label">Triple tick chance (%)</span>
+          <input id="legendary-tripleTick" type="number" min="0" max="100" step="any" value="0">
+        </label>
+        <label class="field">
+          <span class="field-label">5x tick chance (%)</span>
+          <input id="legendary-fiveTick" type="number" min="0" max="100" step="any" value="0">
+        </label>
+        <label class="field legendary-field-check">
+          <span class="field-label">&nbsp;</span>
+          <span class="legendary-check">
+            <input id="legendary-tick3x" type="checkbox">
+            <span>3x tick buff active</span>
+          </span>
+        </label>
+      </div>
+      <p id="legendary-tickNote" class="hint"></p>
+    </section>
+
+    <section class="panel acc-panel">
+      <details class="acc" id="legendary-angler-details">
+        <summary>
+          <span class="acc-title">4. Angler drone</span>
+          <span class="acc-sub">Legendary chance bonus and extra ticks</span>
+          <span class="acc-icon" aria-hidden="true"></span>
+        </summary>
+        <div class="acc-body">
+          <div class="goal-controls">
+            <label class="field">
+              <span class="field-label">Angler grade</span>
+              <input id="legendary-anglerGrade" type="number" min="0" step="1" value="0">
+            </label>
+            <label class="field">
+              <span class="field-label">Angler suit upgrade level</span>
+              <input id="legendary-anglerLevel" type="number" min="0" max="15" step="1" value="0">
+            </label>
+          </div>
+          <div class="legendary-checks">
+            <label class="legendary-check">
+              <input id="legendary-anglerEquipped" type="checkbox">
+              <span>Angler equipped</span>
+            </label>
+            <label class="legendary-check">
+              <input id="legendary-anglerFueled" type="checkbox">
+              <span>Angler fuelled</span>
+            </label>
+          </div>
+          <p id="legendary-anglerNote" class="hint"></p>
+        </div>
+      </details>
+    </section>
+
+    <section class="panel results-panel">
+      <h2>5. Expected catch time</h2>
+      <div id="legendary-hero" aria-live="polite"></div>
+      <div id="legendary-warning" class="legendary-warning"></div>
+      <div id="legendary-facts"></div>
+    </section>
+
+    <section class="panel results-panel">
+      <h2>6. Odds over time</h2>
+      <div id="legendary-timeline"></div>
+    </section>
+
+    <section class="panel results-panel">
+      <h2>7. All docks</h2>
+      <p class="lead">The same setup compared across every dock. Times assume the fisher and every fishing drone are assigned to the selected dock.</p>
+      <div id="legendary-docks"></div>
+    </section>
+
+    <section class="panel">
+      <details>
+        <summary>How this estimate works</summary>
+        <p>A dock rolls for its legendary fish only when its tick meter fills, and only after the dock is eligible. The tool turns your fishing stats into ticks per second, dock fills per hour, and a legendary chance per fill, then uses the geometric distribution for the average and the percentile times.</p>
+        <ul>
+          <li><strong>Dock power:</strong> <code>(rod power + drones &times; drone base &times; drone multiplier) &times; Tier 2 dock power</code>. The Tier 2 multiplier only applies to Cave, Volcano, Sky, Solaris, and Galaxy.</li>
+          <li><strong>Catch chance:</strong> <code>100 &times; dock power &divide; last-fish power rating</code>, capped at 999%.</li>
+          <li><strong>Legendary steps:</strong> <code>min(9, floor(catch chance / 100))</code>. All four polychrome cards are required. Each step gives a 1/150,000 base chance per dock fill.</li>
+          <li><strong>Angler bonus:</strong> while equipped and fuelled, <code>1 + 0.02 &times; (grade + 1)</code> multiplies the legendary chance, so 150,000 becomes about 81,000 at the highest grade.</li>
+          <li><strong>Ticks per event:</strong> double, triple, and 5x tick procs are independent and stack (2&times;3&times;5&times; = 30 ticks). The expected ticks per tick-bar fill is the fishing optimizer's own formula.</li>
+          <li><strong>Angler ticks:</strong> the suit gives 2 ticks per <code>1140 &minus; 40 &times; suit level</code> second cycle while equipped. While fuelled it also has a 1% chance per cycle of <code>6 &times; (grade + 1)</code> extra ticks, so the expected Angler rate is <code>(2 + 1% &times; 6 &times; (grade + 1)) &divide; cycle seconds</code>.</li>
+          <li><strong>Ticks per second:</strong> <code>ticks per event &divide; tick bar seconds + Angler passive ticks</code>. Dock fills per second is ticks per second divided by the ticks required for that dock.</li>
+          <li><strong>Average catch time:</strong> <code>1 &divide; (dock fills per second &times; legendary chance per fill)</code>. Median and 90%/95%/99% times use the geometric distribution, not a simple multiplication.</li>
+        </ul>
+        <p class="hint">Assumptions: every fishing drone and the fisher are on the selected dock; game speed does not affect normal fishing ticks (Angler drone ticks are treated as real-time); offline ticks are identical to online; tick overflow carries into the next dock fill; each full 100% of catch chance is one step (so 199% is still 1/150,000); and the Angler stays equipped and fuelled. The 3x tick buff is temporary, so leave it off for a long-run average. The result is a long-run average, not a guarantee for a single attempt: lucky and unlucky streaks are normal. Legendary fish odds may be seeded or changed by the game, so check important decisions in-game. Wiki sources: <a href="https://shminer.miraheze.org/wiki/Fishing" target="_blank" rel="noopener">Fishing</a>, <a href="https://shminer.miraheze.org/wiki/Drones" target="_blank" rel="noopener">Drones</a>.</p>
+      </details>
     </section>
   </div>
 
@@ -942,6 +1137,7 @@
 
 <footer>
   <p>Fishing model ported from the community Google Sheet <em>Let's Go Fishing - V2.0.6</em>.
+    Legendary Fish uses the wiki's fishing and drone formulas.
     Bomb comparison and Goal ETA use community crafting formulas and wiki bar costs; the contract
     planner uses the wiki's contract cost tables; Max Damage uses the wiki's item effects and
     the same contract factors; Best Floor to Farm is ported from the community sheet
@@ -953,12 +1149,14 @@
 <script src="data.js"></script>
 <script src="fishcosts.js"></script>
 <script src="exportstats.js"></script>
+<script src="legendarydata.js"></script>
 <script src="account.js"></script>
 <script src="trackerdata.js"></script>
 <script src="bombdata.js"></script>
 <script src="goaldata.js"></script>
 <script src="bombs.js"></script>
 <script src="goals.js"></script>
+<script src="legendary.js"></script>
 <script src="contractdata.js"></script>
 <script src="contracts.js"></script>
 <script src="damagedata.js"></script>

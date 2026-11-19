@@ -663,8 +663,8 @@ same export again does not duplicate it.
   spans about 100x or more, and **Scale** lets you force linear or log.
 - **Several stats** switch to a normalized overlay: every series starts at 100% at its first
   positive value, so multipliers, levels, and damage can share one chart. Leading zeros are skipped
-  rather than plotted as 0%. Hovering shows the raw values, and the **Chart data** table gives touch
-  and keyboard users the same values.
+  rather than plotted as 0%. Hovering or tapping a point shows the exact raw values, and the
+  **Chart data** table gives keyboard users the same values.
 - Up to eight stats can be compared at once; the palette has one distinct colour per series.
 - The quick-pick chips default to OB level, current floor, worlds unlocked, black hole level,
   all-floor multiplier, ore sell price multiplier, game speed, pickaxe damage, bomb damage, fishing

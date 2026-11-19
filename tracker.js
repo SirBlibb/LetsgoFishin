@@ -47,6 +47,7 @@
   var initPromise = null;
   var seededThisSession = false;
   var chipButtons = {};
+  var chartTapCleanup = null;
 
   /* ---------------------------------------------------------------- */
   /* helpers                                                          */
@@ -63,6 +64,15 @@
     var e = document.createElementNS("http://www.w3.org/2000/svg", tag);
     Object.keys(attrs || {}).forEach(function (k) { e.setAttribute(k, attrs[k]); });
     return e;
+  }
+
+  function formatExactValue(n) {
+    if (n === null || n === undefined || !isFinite(n)) return "-";
+    if (typeof n !== "number") return String(n);
+    var abs = Math.abs(n);
+    if (abs >= 1e21 || (abs > 0 && abs < 1e-6)) return n.toExponential(6);
+    if (Math.round(n) === n) return n.toLocaleString("en-US");
+    return n.toLocaleString("en-US", { maximumFractionDigits: abs < 1 ? 9 : 6 });
   }
 
   function scrollWrap(table) {
@@ -801,6 +811,10 @@
 
   function renderChart() {
     if (!nodes.chart) return;
+    if (chartTapCleanup) {
+      chartTapCleanup();
+      chartTapCleanup = null;
+    }
     if (!state.ready) {
       emptyChart("Loading snapshot history...", "The chart appears once the tracker opens its local database.");
       return;
@@ -835,7 +849,7 @@
     if (Object.keys(distinctX).length === 1) {
       notes.push("Only one snapshot in this range; import another export to see a trend.");
     }
-    notes.push("Hover a point on desktop, or open Chart data below, for exact values.");
+    notes.push("Tap or hover a point for exact values, or open Chart data below.");
     if (nodes.note) nodes.note.textContent = notes.join(" ");
 
     if (typeof document.createElementNS !== "function") {
@@ -927,6 +941,11 @@
       stroke: "#2b3340", "stroke-width": 1
     }));
 
+    svg.appendChild(svgEl("rect", {
+      x: margin.left, y: margin.top, width: plotW, height: plotH,
+      fill: "transparent", "pointer-events": "all", "aria-hidden": "true"
+    }));
+
     model.series.forEach(function (series) {
       var path = series.points.map(function (point, index) {
         return (index ? "L" : "M") + xPos(point.x).toFixed(1) + " " + yPos(point.y).toFixed(1);
@@ -958,21 +977,25 @@
     nodes.chart.innerHTML = "";
     nodes.chart.appendChild(wrap);
 
+    var tapTime = null;
+    var lastPointerType = "mouse";
+    var lastTouchAt = 0;
+
     function hideTooltip() {
       tooltip.hidden = true;
       hoverLine.setAttribute("opacity", 0);
+      tapTime = null;
     }
 
-    svg.addEventListener("mousemove", function (event) {
-      if (typeof svg.getBoundingClientRect !== "function") return;
-      var rect = svg.getBoundingClientRect();
-      if (!rect || !rect.width) return;
-      var pointerX = ((event.clientX - rect.left) / rect.width) * W;
-      if (pointerX < margin.left || pointerX > margin.left + plotW) {
-        hideTooltip();
-        return;
+    function pointForTime(series, timeMs) {
+      for (var i = 0; i < series.points.length; i++) {
+        if (series.points[i].x === timeMs) return series.points[i];
       }
+      return null;
+    }
 
+    function nearestPoint(pointerX) {
+      if (pointerX < margin.left || pointerX > margin.left + plotW) return null;
       var targetTime = model.xMin + ((pointerX - margin.left) / plotW) * (model.xMax - model.xMin);
       var nearest = null;
       model.series.forEach(function (series) {
@@ -982,51 +1005,147 @@
           }
         });
       });
-      if (nearest === null) {
-        hideTooltip();
-        return;
+      if (nearest === null) return null;
+
+      var nearestY = null;
+      model.series.forEach(function (series) {
+        var point = pointForTime(series, nearest);
+        if (point && nearestY === null) nearestY = yPos(point.y);
+      });
+      return {
+        time: nearest,
+        x: xPos(nearest),
+        y: nearestY === null ? margin.top + plotH / 2 : nearestY
+      };
+    }
+
+    function positionTooltip(hit, anchor) {
+      var wrapRect = null;
+      if (typeof wrap.getBoundingClientRect === "function") wrapRect = wrap.getBoundingClientRect();
+      if (!wrapRect || !wrapRect.width) wrapRect = { left: 0, top: 0, width: W, height: H };
+
+      var tipWidth = tooltip.offsetWidth || 190;
+      var tipHeight = tooltip.offsetHeight || 70;
+      var left;
+      var top;
+
+      if (anchor) {
+        left = anchor.clientX - wrapRect.left + 12;
+        top = anchor.clientY - wrapRect.top + 12;
+      } else {
+        var svgRect = null;
+        if (typeof svg.getBoundingClientRect === "function") svgRect = svg.getBoundingClientRect();
+        if (!svgRect || !svgRect.width) {
+          svgRect = {
+            left: wrapRect.left, top: wrapRect.top,
+            width: wrapRect.width, height: wrapRect.height
+          };
+        }
+        var pointLeft = (svgRect.left - wrapRect.left) + (hit.x / W) * svgRect.width;
+        var pointTop = (svgRect.top - wrapRect.top) + (hit.y / H) * svgRect.height;
+        left = pointLeft - tipWidth / 2;
+        top = pointTop - tipHeight - 14;
+        if (top < 4) top = pointTop + 14;
       }
 
-      var x = xPos(nearest);
-      hoverLine.setAttribute("x1", x);
-      hoverLine.setAttribute("x2", x);
+      if (left + tipWidth > wrapRect.width - 4) left = wrapRect.width - tipWidth - 4;
+      if (left < 4) left = 4;
+      if (top + tipHeight > wrapRect.height - 4) top = wrapRect.height - tipHeight - 4;
+      if (top < 4) top = 4;
+      tooltip.style.left = Math.round(left) + "px";
+      tooltip.style.top = Math.round(top) + "px";
+    }
+
+    function showTooltip(hit, anchor) {
+      hoverLine.setAttribute("x1", hit.x);
+      hoverLine.setAttribute("x2", hit.x);
       hoverLine.setAttribute("opacity", 1);
 
       tooltip.innerHTML = "";
-      tooltip.appendChild(el("div", "tracker-tooltip-date", TD.formatTimeMs(nearest, false)));
+      tooltip.appendChild(el("div", "tracker-tooltip-date", TD.formatTimeMs(hit.time, false)));
       model.series.forEach(function (series) {
-        var point = null;
-        series.points.forEach(function (p) { if (p.x === nearest) point = p; });
+        var point = pointForTime(series, hit.time);
         if (!point) return;
         var row = el("div", "tracker-tooltip-row");
         var label = el("span", "tracker-tooltip-label", series.label);
         var value = el("span", "tracker-tooltip-value",
           model.normalize
-            ? TD.formatIndex(point.y) + " (" + TD.formatValue(point.raw) + ")"
-            : TD.formatValue(point.y));
+            ? TD.formatIndex(point.y) + " (" + formatExactValue(point.raw) + ")"
+            : formatExactValue(point.y));
         value.style.color = series.color;
         row.appendChild(label);
         row.appendChild(value);
         tooltip.appendChild(row);
       });
       tooltip.hidden = false;
+      positionTooltip(hit, anchor);
+    }
 
-      var left = (event.clientX - rect.left) + 12;
-      var top = (event.clientY - rect.top) + 12;
-      if (typeof wrap.getBoundingClientRect === "function") {
-        var wrapRect = wrap.getBoundingClientRect();
-        if (wrapRect.width && left + 230 > wrapRect.width) left -= 250;
-        if (wrapRect.height) {
-          var tipHeight = tooltip.offsetHeight || 80;
-          if (top + tipHeight > wrapRect.height) top -= tipHeight + 24;
-          if (top < 0) top = 0;
-        }
-      }
-      tooltip.style.left = Math.max(0, left) + "px";
-      tooltip.style.top = Math.max(0, top) + "px";
+    function isTouchEvent(event) {
+      var type = event && event.pointerType;
+      if (!type) type = lastPointerType;
+      return type === "touch" || type === "pen";
+    }
+
+    function pointerXOf(event, rect) {
+      return ((event.clientX - rect.left) / rect.width) * W;
+    }
+
+    svg.addEventListener("pointerdown", function (event) {
+      lastPointerType = (event && event.pointerType) || "mouse";
     });
 
-    svg.addEventListener("mouseleave", hideTooltip);
+    svg.addEventListener("mousemove", function (event) {
+      if (Date.now() - lastTouchAt < 800) return;
+      if (typeof svg.getBoundingClientRect !== "function") return;
+      var rect = svg.getBoundingClientRect();
+      if (!rect || !rect.width) return;
+      var hit = nearestPoint(pointerXOf(event, rect));
+      if (!hit) {
+        hideTooltip();
+        return;
+      }
+      showTooltip(hit, { clientX: event.clientX, clientY: event.clientY });
+    });
+
+    svg.addEventListener("click", function (event) {
+      if (typeof svg.getBoundingClientRect !== "function") return;
+      var rect = svg.getBoundingClientRect();
+      if (!rect || !rect.width) return;
+      var hit = nearestPoint(pointerXOf(event, rect));
+      if (!hit) {
+        hideTooltip();
+        return;
+      }
+
+      var touch = isTouchEvent(event);
+      if (touch && tapTime === hit.time) {
+        hideTooltip();
+        return;
+      }
+      if (touch) lastTouchAt = Date.now();
+      tapTime = touch ? hit.time : null;
+      showTooltip(hit, touch ? null : { clientX: event.clientX, clientY: event.clientY });
+    });
+
+    svg.addEventListener("mouseleave", function () {
+      if (Date.now() - lastTouchAt < 800) return;
+      hideTooltip();
+    });
+
+    if (typeof document.addEventListener === "function") {
+      var onDocumentPointerDown = function (event) {
+        var target = event && event.target;
+        if (wrap.contains && target && wrap.contains(target)) return;
+        hideTooltip();
+      };
+      document.addEventListener("pointerdown", onDocumentPointerDown);
+      if (typeof document.removeEventListener === "function") {
+        chartTapCleanup = function () {
+          document.removeEventListener("pointerdown", onDocumentPointerDown);
+        };
+      }
+    }
 
     renderLegend(model);
     renderDataTable(model);
@@ -1084,7 +1203,7 @@
             break;
           }
         }
-        var text = point ? TD.formatValue(point.raw) : "—";
+        var text = point ? formatExactValue(point.raw) : "—";
         if (point && model.normalize) text += " (" + TD.formatIndex(point.y) + ")";
         row.appendChild(el("td", null, text));
       });

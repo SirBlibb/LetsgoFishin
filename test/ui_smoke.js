@@ -12,7 +12,11 @@ function makeNode(tag) {
       (this._l[type] = this._l[type] || []).push(fn);
     },
     removeEventListener: function () {},
-    setAttribute: function () {}, getAttribute: function () { return null; }
+    setAttribute: function () {}, getAttribute: function () { return null; },
+    offsetWidth: 190, offsetHeight: 70,
+    getBoundingClientRect: function () {
+      return { left: 0, top: 0, width: 860, height: 380, right: 860, bottom: 380 };
+    }
   };
   Object.defineProperty(n, "textContent", { get: function () { return this._text; }, set: function (v) { this._text = v; } });
   Object.defineProperty(n, "innerHTML", { get: function () { return this._text; }, set: function (v) { this._text = v; this.children = []; } });
@@ -23,9 +27,13 @@ function makeNode(tag) {
   return n;
 }
 
-function fire(node, type) {
+function fire(node, type, props) {
   var hs = node && node._l && node._l[type];
-  if (hs) hs.forEach(function (h) { h({ preventDefault: function () {} }); });
+  if (hs) hs.forEach(function (h) {
+    var event = { preventDefault: function () {} };
+    if (props) Object.keys(props).forEach(function (k) { event[k] = props[k]; });
+    h(event);
+  });
 }
 
 function rowsOf() {
@@ -342,6 +350,17 @@ check("tracker chart draws a line", countTags(byId["tracker-chart"], "path") >= 
 check("tracker status counts the snapshots", byId["tracker-status"].textContent.indexOf("2 snapshots") >= 0);
 check("tracker summary counts the snapshots", byId["tracker-snapshots-summary"].textContent.indexOf("2 snapshots") >= 0);
 check("tracker chart data table renders", byId["tracker-data"].children.length > 0);
+var trackerChartWrap = byId["tracker-chart"].children[0];
+var trackerChartSvg = trackerChartWrap.children[0];
+var trackerChartTooltip = trackerChartWrap.children[1];
+fire(trackerChartSvg, "click", { clientX: 400, clientY: 200 });
+check("tracker click opens the exact-value popup",
+  trackerChartTooltip.hidden === false && nodeText(trackerChartTooltip).indexOf("71") >= 0);
+fire(trackerChartSvg, "pointerdown", { pointerType: "touch" });
+fire(trackerChartSvg, "click", { pointerType: "touch", clientX: 400, clientY: 200 });
+check("tracker tap keeps the popup open", trackerChartTooltip.hidden === false);
+fire(trackerChartSvg, "click", { pointerType: "touch", clientX: 400, clientY: 200 });
+check("tracker second tap dismisses the popup", trackerChartTooltip.hidden === true);
 fire(byId["tracker-clear-selection"], "click");
 check("tracker clears the chart selection", global.TrackerTool.getState().selected.length === 0);
 check("tracker disables clear selection when empty", byId["tracker-clear-selection"].disabled === true);

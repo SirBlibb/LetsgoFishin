@@ -1089,7 +1089,9 @@ td.num { white-space: nowrap; }
   .tracker-control-action button { width: 100%; }
   .tracker-chip-main { padding: 8px 10px; }
   .tracker-chip { border-radius: 8px; }
-  .tracker-tooltip { display: none; }
+  .tracker-tooltip { min-width: 0; max-width: 220px; padding: 7px 9px; font-size: 11px; }
+  .tracker-tooltip-row { gap: 8px; }
+  .tracker-tooltip-value { white-space: normal; overflow-wrap: anywhere; text-align: right; }
   .tracker-actions button { flex: 1 1 0; }
   .tracker-edit-date { width: 100%; }
   .tracker-edit-date input { width: 100%; }

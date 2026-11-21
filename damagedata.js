@@ -147,6 +147,7 @@
       workshop_array: workshop,
       black_hole_level: 0,
       obelisk_level: 0,
+      obelisk_armor_reduction: 1,
       fishing_legendary_tribute_levels_array: [],
       item_uptime_array: [],
       contracts_array: [],
@@ -176,7 +177,8 @@
       bombSuperDamage: Math.max(1, asNumber(stats && stats.bomb_super_crit_damage, 1)),
       bombUltraDamage: Math.max(1, asNumber(stats && stats.bomb_ultra_crit_damage, 1)),
       bombOmegaDamage: Math.max(1, asNumber(stats && stats.bomb_omega_crit_damage, 1)),
-      hamburgerLevel: clamp(asNumber(arr(stats, "workshop_array", 22), 0), 0, 47)
+      hamburgerLevel: clamp(asNumber(arr(stats, "workshop_array", 22), 0), 0, 47),
+      armorReduction: Math.max(0, asNumber(stats && stats.obelisk_armor_reduction, 1))
     };
   }
 
@@ -293,13 +295,41 @@
     return Math.round(10 * Math.pow(2.8, 60) * Math.pow(9.5, l - 60));
   }
 
-  function armorCheck(level, hit) {
-    var armor = obeliskArmor(level);
+  // The game's Obelisk Armor Reduction stat is a multiplier on the base
+  // armour table: OB62's 6.099e29 base becomes 7.313e28 at 0.12x.
+  function effectiveArmor(level, reduction) {
+    return obeliskArmor(level) * Math.max(0, asNumber(reduction, 1));
+  }
+
+  // The game subtracts armour from pickaxe damage before crits.  A hit whose
+  // base damage does not beat the armour always deals 0, even with crits.
+  function armorCheck(level, hit, base, reduction) {
+    var armorBase = obeliskArmor(level);
+    var multiplier = Math.max(0, asNumber(reduction, 1));
+    var armor = armorBase * multiplier;
     if (!(armor > 0)) return null;
-    var out = { level: Math.floor(asNumber(level, 0)), armor: armor };
+
+    var rawBase = Math.max(0, asNumber(base, 0));
+    var afterArmor = Math.max(0, rawBase - armor);
+    var maxMultiplier = rawBase > 0 ? hit.max / rawBase : 0;
+    var expectedMultiplier = rawBase > 0 ? hit.expected / rawBase : 0;
+    var pass = rawBase > armor;
+    var maxHit = afterArmor * maxMultiplier;
+    var expectedHit = afterArmor * expectedMultiplier;
+
+    var out = {
+      level: Math.floor(asNumber(level, 0)),
+      armor: armor,
+      baseArmor: armorBase,
+      reduction: multiplier,
+      base: rawBase,
+      afterArmor: afterArmor,
+      baseRatio: rawBase / armor,
+      pass: pass
+    };
     ["max", "expected"].forEach(function (k) {
-      var v = hit[k];
-      out[k] = { hit: v, ratio: v / armor, pass: v > armor };
+      var damage = k === "max" ? maxHit : expectedHit;
+      out[k] = { hit: damage, ratio: damage / armor, pass: pass };
     });
     return out;
   }
@@ -456,8 +486,9 @@
     return {
       armor: {
         level: targetOb,
-        current: armorCheck(targetOb, current.pickaxe.hit),
-        scenario: armorCheck(targetOb, selected.pickaxe.hit)
+        reduction: summary.armorReduction,
+        current: armorCheck(targetOb, current.pickaxe.hit, current.pickaxe.base, summary.armorReduction),
+        scenario: armorCheck(targetOb, selected.pickaxe.hit, selected.pickaxe.base, summary.armorReduction)
       },
       stats: summary,
       activeItems: activeItems,
@@ -489,6 +520,7 @@
     ITEM_BY_ID: ITEM_BY_ID,
     DAMAGE_CONTRACT_INDICES: DAMAGE_CONTRACT_INDICES,
     obeliskArmor: obeliskArmor,
+    effectiveArmor: effectiveArmor,
     defaultStats: defaultStats,
     defaultItems: defaultItems,
     activeItemsFromStats: activeItemsFromStats,

@@ -1019,6 +1019,15 @@ check("damage sample loads into the tool", global.DamageTool.getState().source =
 check("damage sample detects active consumables",
   global.DamageTool.getState().result.activeItems.apple === true &&
   global.DamageTool.getState().result.activeItems.rockCake === false);
+check("damage sample reads the armour reduction stat",
+  Math.abs(parseFloat(byId["damage-stat-obelisk_armor_reduction"].value) - 0.12) < 1e-9);
+var damageTargetOb = byId["damage-target-ob"];
+damageTargetOb.value = "62";
+fire(damageTargetOb, "input");
+check("damage armour card shows the reduced OB62 armour",
+  nodeText(byId["damage-hero"]).indexOf("73.1oc") >= 0);
+damageTargetOb.value = "0";
+fire(damageTargetOb, "input");
 var damageSampleMax = global.DamageTool.getState().result.scenario.pickaxe.hit.max;
 check("damage sample max hit beats the current hit",
   damageSampleMax > global.DamageTool.getState().result.current.pickaxe.hit.max);

@@ -204,15 +204,33 @@ check("manual OB 0 warns about locked damage contracts",
 })();
 
 
-// Obelisk armour formula and check.
+// Obelisk armour formula, reduction multiplier, and pre-crit check.
 (function () {
   check("OB62 armour is about 6.09e29", Math.abs(DD.obeliskArmor(62) / 6.094e29 - 1) < 1e-3);
   check("OB1 is half of 10", DD.obeliskArmor(1) === 5);
   check("OB60 armour", close(DD.obeliskArmor(60), 10 * Math.pow(2.8, 59)));
+  check("armour reduction multiplies the base armour",
+    close(DD.effectiveArmor(62, 0.12), DD.obeliskArmor(62) * 0.12));
+  check("manual stats have no armour reduction",
+    DD.statsSummary(DD.defaultStats()).armorReduction === 1);
+
   var r = DD.computeDamage(stats, { items: DD.defaultItems(true), contractMode: "maxed", contractsCompleted: 100, targetOb: 62 });
-  check("armour check passes at OB62 when maxed", r.armor.scenario.max.pass && r.armor.level === 62);
-  var c = DD.computeDamage(stats, { contractMode: "current", targetOb: 62 });
-  check("armour check fails at OB62 for current setup", !c.armor.current.max.pass);
+  check("armour check uses the effective OB62 armour",
+    close(r.armor.scenario.armor, DD.obeliskArmor(62) * 0.12));
+  check("armour check passes when the base hit beats armour",
+    r.armor.scenario.pass && r.armor.scenario.max.pass && r.armor.scenario.max.hit > 0);
+  check("armour is subtracted before crits",
+    close(r.armor.scenario.max.hit,
+      (r.armor.scenario.base - r.armor.scenario.armor) *
+        (r.scenario.pickaxe.hit.max / r.scenario.pickaxe.base)));
+  check("current setup cannot damage OB62",
+    !r.armor.current.pass && r.armor.current.max.hit === 0 && r.armor.current.afterArmor === 0);
+
+  var noReduction = JSON.parse(JSON.stringify(stats));
+  noReduction.obelisk_armor_reduction = 1;
+  var nr = DD.computeDamage(noReduction, { items: DD.defaultItems(true), contractMode: "maxed", contractsCompleted: 100, targetOb: 62 });
+  check("unreduced OB62 armour blocks the maxed crit hit",
+    !nr.armor.scenario.pass && nr.armor.scenario.max.hit === 0);
 })();
 
 console.log(fails === 0 ? "DAMAGE OK" : fails + " FAILED");

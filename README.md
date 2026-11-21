@@ -577,7 +577,8 @@ for the selected scenario.
   because ExportStats does not record it.
 - **Results:** maximum pickaxe hit, current-setup comparison, maximum bomb hit, base damage,
   max crit multiplier, expected hit, expected DPS, attack speed, game speed, and a crit-tier table
-  with the chance, multiplier, and damage of each outcome.
+  with the chance, multiplier, and damage of each outcome. The Obelisk armour card shows the
+  effective armour and the damage after armour for the selected target.
 - **Breakdowns:** the contract table and consumable table show exactly what changed. The
   **Your stats** accordion pre-fills every damage stat from the account and keeps hand edits in
   this browser until a new import or Reset.
@@ -606,6 +607,10 @@ export:
   include the floor the export was taken on.
 - **Bomb:** `bomb_damage x (1 + bomb_additional_multiplier)` (capped at 99,999x), then the
   consumable and bomb-contract factors and the bomb crit chain.
+- **Obelisk armour:** the base armour table is multiplied by the export's
+  `obelisk_armor_reduction` (the game's Obelisk Armor Reduction stat, e.g. `0.12`). Armour is
+  subtracted from the base pickaxe hit before crits; if the base hit is not above the armour, the
+  hit deals 0 even when a crit would otherwise be enough.
 
 ### Caveats
 
@@ -614,8 +619,9 @@ export:
   contract planner makes the same assumption.
 - Crit chance above 100% is capped for the expected hit; the maximum hit still uses the tier if
   its chance is above 0.
-- Raw damage ignores Obelisk armor and ore damage-reduction modifiers. The maximum hit is the
-  damage number before those reductions.
+- The maximum pickaxe hit is the raw hit before Obelisk armour. The armour card applies the
+  effective armour (base x Obelisk Armor Reduction) and subtracts it from the base hit before
+  crits. Ore damage-reduction modifiers are not applied.
 - Base Game Speed and Bomb Recharge contracts are not maxed because they do not change a single
   hit's damage.
 - Maxed damage contracts respect your OB level: an upgrade above the current OB stays at its

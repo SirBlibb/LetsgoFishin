@@ -175,6 +175,9 @@
     var savedChaosGolden = !!(state.golden && state.golden.chaosTotem);
     state.stats = JSON.parse(JSON.stringify(acct.stats));
     applyOverrides(state.stats, state.overrides);
+    if (!isFinite(asNumber(state.stats.obelisk_armor_reduction, NaN))) {
+      state.stats.obelisk_armor_reduction = 1;
+    }
     state.source = Object.keys(state.overrides || {}).length ? "account-edited" : "account";
     state.account = acct;
     state.golden = DD.goldenFromStats(state.stats);
@@ -361,8 +364,9 @@
     itemGrid.appendChild(field("Hamburger workshop level", "workshopHamburger", "1"));
     itemGrid.appendChild(field("Black hole level", "blackHoleLevel", "1"));
     itemGrid.appendChild(field("Obelisk level", "obelisk_level", "1"));
+    itemGrid.appendChild(field("Obelisk armour reduction (x)", "obelisk_armor_reduction", "0.01"));
     items.appendChild(itemGrid);
-    items.appendChild(el("p", "hint", "The hamburger level comes from workshop_array[22]. Black hole 13 unlocks Golden Primal Meat; the Blackened Basker tribute unlocks Golden Hamburger. Both are detected from the account, and the golden checkboxes below can override them for a what-if."));
+    items.appendChild(el("p", "hint", "The hamburger level comes from workshop_array[22]. Black hole 13 unlocks Golden Primal Meat; the Blackened Basker tribute unlocks Golden Hamburger. Both are detected from the account, and the golden checkboxes below can override them for a what-if. Obelisk armour reduction is the in-game multiplier applied to the base armour table (0.12 makes OB62 armour 73.1oc instead of 609oc)."));
     nodes.statsEditor.appendChild(items);
 
     fillStatInputs();
@@ -386,7 +390,7 @@
       "bomb_super_crit_chance", "bomb_super_crit_damage",
       "bomb_ultra_crit_chance", "bomb_ultra_crit_damage",
       "bomb_omega_crit_chance", "bomb_omega_crit_damage",
-      "obelisk_level"
+      "obelisk_level", "obelisk_armor_reduction"
     ].forEach(function (key) { set(key, s[key]); });
     var workshop = Array.isArray(s.workshop_array) ? asNumber(s.workshop_array[22], 0) : 0;
     set("workshopHamburger", workshop);
@@ -538,7 +542,8 @@
     main.appendChild(el("span", "damage-hero-label", "Maximum pickaxe hit"));
     main.appendChild(el("strong", "damage-hero-value", fmt(r.scenario.pickaxe.hit.max)));
     main.appendChild(el("span", "damage-hero-sub",
-      r.scenario.pickaxe.hit.maxTierName + " · " + fmtChance(r.scenario.pickaxe.hit.maxChance) + " chance"));
+      r.scenario.pickaxe.hit.maxTierName + " · " + fmtChance(r.scenario.pickaxe.hit.maxChance) +
+      " chance · before armour"));
     hero.appendChild(main);
 
     var compare = el("div", "damage-hero-compare");
@@ -563,15 +568,26 @@
     var ar = r.armor && r.armor.scenario;
     if (ar) {
       var cur = r.armor.current;
-      var pass = ar.max.pass;
+      var pass = ar.pass;
       var card = el("div", "damage-bomb-card damage-armor " + (pass ? "pass" : "fail"));
       card.appendChild(el("span", "damage-bomb-label", "Obelisk armour check (OB " + ar.level + ")"));
       card.appendChild(el("strong", "damage-bomb-value",
-        (pass ? "Met" : "Not met") + " · " + fmt(ar.max.hit) + " vs " + fmt(ar.armor)));
-      card.appendChild(el("span", "damage-bomb-sub",
-        "Max hit is " + ar.max.ratio.toPrecision(3) + "× the armour · typical hit " +
-        ar.expected.ratio.toPrecision(3) + "× (" + (ar.expected.pass ? "met" : "not met") + ")" +
-        (cur ? " · current setup " + cur.max.ratio.toPrecision(3) + "× (" + (cur.max.pass ? "met" : "not met") + ")" : "")));
+        pass
+          ? "Met · " + fmt(ar.max.hit) + " damage after armour"
+          : "Not met · crits cannot damage it"));
+
+      var armorText = "Armour " + fmt(ar.armor);
+      if (ar.reduction < 1) {
+        armorText += " (" + fmtPct(ar.reduction) + " of " + fmt(ar.baseArmor) + " base)";
+      }
+      var detail = armorText + " · base hit " + fmt(ar.base) + " is " +
+        ar.baseRatio.toPrecision(3) + "× armour";
+      if (pass) detail += " · expected " + fmt(ar.expected.hit) + " after armour";
+      if (cur) {
+        detail += " · current setup base hit " + fmt(cur.base) + " (" +
+          cur.baseRatio.toPrecision(3) + "×, " + (cur.pass ? "met" : "not met") + ")";
+      }
+      card.appendChild(el("span", "damage-bomb-sub", detail));
       nodes.hero.appendChild(card);
     }
   }

@@ -1026,6 +1026,12 @@ damageTargetOb.value = "62";
 fire(damageTargetOb, "input");
 check("damage armour card shows the reduced OB62 armour",
   nodeText(byId["damage-hero"]).indexOf("73.1oc") >= 0);
+var damageArmorTableText = nodeText(byId["damage-armor-levels"]);
+check("damage armour table lists the next levels",
+  damageArmorTableText.indexOf("Next Obelisk armour checks") >= 0 &&
+  damageArmorTableText.indexOf("OB 66") >= 0);
+check("damage armour table shows not-met thresholds",
+  damageArmorTableText.indexOf("Not met") >= 0);
 damageTargetOb.value = "0";
 fire(damageTargetOb, "input");
 var damageSampleMax = global.DamageTool.getState().result.scenario.pickaxe.hit.max;
@@ -1051,6 +1057,12 @@ fire(damageContracts, "input");
 check("damage contracts completed updates the state", global.DamageTool.getState().contractsCompleted === 100);
 check("damage per-contract upgrades grow with completions",
   global.DamageTool.getState().result.scenario.pickaxe.contractBaseFactor > 1);
+damageTargetOb.value = "62";
+fire(damageTargetOb, "input");
+check("damage armour table updates with contract completions",
+  nodeText(byId["damage-armor-levels"]).indexOf("Met") >= 0);
+damageTargetOb.value = "0";
+fire(damageTargetOb, "input");
 
 /* damage stat edits survive a reload and clear on a new import */
 fire(byId["btn-sample"], "click");

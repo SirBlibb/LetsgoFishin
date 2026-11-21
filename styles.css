@@ -1565,6 +1565,27 @@ button.floors-sort:focus-visible { outline: 2px solid var(--accent); outline-off
   min-width: 640px;
 }
 
+.damage-table.damage-armor-table {
+  min-width: 520px;
+}
+
+.damage-armor-table td:nth-child(n+2) {
+  font-variant-numeric: tabular-nums;
+}
+
+.damage-armor-table tr.damage-armor-target td {
+  background: rgba(47, 129, 247, .05);
+}
+
+.damage-armor-pass {
+  color: #7ee787;
+  font-weight: 600;
+}
+
+.damage-armor-fail {
+  color: var(--muted);
+}
+
 .damage-table td,
 .damage-table th {
   vertical-align: top;

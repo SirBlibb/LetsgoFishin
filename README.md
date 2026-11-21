@@ -578,7 +578,9 @@ for the selected scenario.
 - **Results:** maximum pickaxe hit, current-setup comparison, maximum bomb hit, base damage,
   max crit multiplier, expected hit, expected DPS, attack speed, game speed, and a crit-tier table
   with the chance, multiplier, and damage of each outcome. The Obelisk armour card shows the
-  effective armour and the damage after armour for the selected target.
+  effective armour and the damage after armour for the selected target; the table below it lists
+  the next five OB levels with their effective armour and pass/fail for the selected and current
+  setups.
 - **Breakdowns:** the contract table and consumable table show exactly what changed. The
   **Your stats** accordion pre-fills every damage stat from the account and keeps hand edits in
   this browser until a new import or Reset.

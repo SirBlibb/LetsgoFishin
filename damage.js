@@ -17,6 +17,7 @@
   var ACCOUNT = global.AccountStore || null;
   var ES = global.ExportStats || null;
   var KEY = "obelisk-damage-v1";
+  var ARMOR_LEVEL_COUNT = 5;
 
   var state = {
     stats: DD ? DD.defaultStats() : {},
@@ -521,6 +522,7 @@
       targetOb: state.targetOb
     });
     renderHero();
+    renderArmorLevels();
     renderStats();
     renderCritTable();
     renderContracts();
@@ -590,6 +592,61 @@
       card.appendChild(el("span", "damage-bomb-sub", detail));
       nodes.hero.appendChild(card);
     }
+  }
+
+  function armorStatus(info) {
+    return el("span", "damage-armor-" + (info.pass ? "pass" : "fail"),
+      (info.pass ? "Met" : "Not met") + " · " + info.ratio.toPrecision(3) + "×");
+  }
+
+  function renderArmorLevels() {
+    if (!nodes.armorLevels) return;
+    nodes.armorLevels.innerHTML = "";
+    var r = state.result;
+    var ar = r && r.armor && r.armor.scenario;
+    if (!ar) return;
+
+    var rows = DD.armorLevels(ar.level, ARMOR_LEVEL_COUNT,
+      r.scenario.pickaxe.base, r.current.pickaxe.base, ar.reduction);
+    if (!rows.length) return;
+
+    nodes.armorLevels.appendChild(el("h3", null,
+      "Next Obelisk armour checks (OB " + rows[0].level + "–" + rows[rows.length - 1].level + ")"));
+
+    var table = el("table", "damage-table damage-armor-table");
+    var thead = el("thead");
+    var head = el("tr");
+    ["Obelisk", "Effective armour", "Selected scenario", "Current setup"].forEach(function (label) {
+      var th = el("th", null, label);
+      th.setAttribute("scope", "col");
+      head.appendChild(th);
+    });
+    thead.appendChild(head);
+    table.appendChild(thead);
+
+    var tbody = el("tbody");
+    rows.forEach(function (row, index) {
+      var tr = el("tr");
+      if (index === 0) tr.className = "damage-armor-target";
+      tr.appendChild(el("td", null, "OB " + row.level));
+      tr.appendChild(el("td", null, fmt(row.armor)));
+      var scenarioCell = el("td");
+      scenarioCell.appendChild(armorStatus(row.scenario));
+      tr.appendChild(scenarioCell);
+      var currentCell = el("td");
+      currentCell.appendChild(armorStatus(row.current));
+      tr.appendChild(currentCell);
+      tbody.appendChild(tr);
+    });
+    table.appendChild(tbody);
+    nodes.armorLevels.appendChild(scrollWrap(table));
+
+    var reductionText = ar.reduction < 1
+      ? "Effective armour = the base armour table × " + fmtPct(ar.reduction) + "."
+      : "Effective armour = the base armour table.";
+    nodes.armorLevels.appendChild(el("p", "hint", reductionText +
+      " Base hits: " + fmt(r.scenario.pickaxe.base) + " selected, " +
+      fmt(r.current.pickaxe.base) + " current. Armour must be beaten before crits."));
   }
 
   function renderStats() {
@@ -766,6 +823,7 @@
     nodes.items = document.getElementById("damage-items");
     nodes.golden = document.getElementById("damage-golden");
     nodes.hero = document.getElementById("damage-hero");
+    nodes.armorLevels = document.getElementById("damage-armor-levels");
     nodes.stats = document.getElementById("damage-stats");
     nodes.crit = document.getElementById("damage-crit");
     nodes.contracts = document.getElementById("damage-contracts");

@@ -864,6 +864,7 @@
     <section class="panel results-panel">
       <h2>2. Maximum damage</h2>
       <div id="damage-hero" aria-live="polite"></div>
+      <div id="damage-armor-levels"></div>
       <div id="damage-warnings"></div>
       <div id="damage-stats"></div>
       <div id="damage-crit"></div>
@@ -901,7 +902,7 @@
           <li><strong>Consumables:</strong> Rock Cake (+30%) and Primal Meat (+100%, Golden +200%) add together; Hamburger multiplies that result (3.00&ndash;8.64x, Golden 6.00&ndash;17.28x). Apple, Pike, and Juicy Plums adjust crit chance and crit damage. Chaos Totem multiplies bomb damage. Banana Coffee and Blue Cow affect DPS, not the maximum hit.</li>
           <li><strong>Contracts:</strong> the eight damage upgrades are reset to their current cap. OB-locked upgrades stay at their current level. Pickaxe Damage, Pickaxe Crit Damage, the per-contract upgrades, and the 1.08x upgrade multiply the hit; the Super/Ultra/Omega crit chance upgrades decide which tiers can trigger. Non-damage contracts are unchanged, and Base Game Speed / Bomb Recharge are not maxed because they do not change a single hit's damage.</li>
           <li><strong>Crit chain:</strong> a Super crit needs a Crit, an Ultra needs a Super, and an Omega needs an Ultra. The maximum hit uses the highest tier with a non-zero chance. The expected hit weights every outcome by its probability.</li>
-          <li><strong>Obelisk armour:</strong> effective armour = the base armour table for the target OB level &times; your exported Obelisk Armor Reduction multiplier. Armour is subtracted from base pickaxe damage before crits; if the base hit does not exceed the armour, crits deal no damage.</li>
+          <li><strong>Obelisk armour:</strong> effective armour = the base armour table for the target OB level &times; your exported Obelisk Armor Reduction multiplier. Armour is subtracted from base pickaxe damage before crits; if the base hit does not exceed the armour, crits deal no damage. The table below lists the next five OB levels and whether the selected and current base hits clear each one.</li>
           <li><strong>DPS:</strong> expected hit &times; attack speed &times; game speed. Game speed is read from the export and may include the floor you exported on.</li>
         </ul>
         <p class="hint">The export is treated as already including the contract levels and active items it records. If the game adds contract bonuses in a different way, the contract portion can differ. The Obelisk armour check applies your exported armour-reduction multiplier and subtracts armour from the base hit before crits, as the game does; ore damage-reduction modifiers are not applied. Verify important decisions in-game.</p>

@@ -226,6 +226,17 @@ check("manual OB 0 warns about locked damage contracts",
   check("current setup cannot damage OB62",
     !r.armor.current.pass && r.armor.current.max.hit === 0 && r.armor.current.afterArmor === 0);
 
+  var levels = DD.armorLevels(62, 5, r.scenario.pickaxe.base, r.current.pickaxe.base, 0.12);
+  check("armour levels list the target and next four",
+    levels.length === 5 && levels[0].level === 62 && levels[4].level === 66);
+  check("armour levels use effective armour",
+    close(levels[0].armor, DD.effectiveArmor(62, 0.12)));
+  check("armour levels mark the maxed scenario as passing OB62",
+    levels[0].scenario.pass && !levels[0].current.pass);
+  check("armour levels mark the next OB as failing",
+    !levels[1].scenario.pass && !levels[1].current.pass);
+  check("armour levels grow x9.5 after OB61", close(levels[1].armor / levels[0].armor, 9.5));
+
   var noReduction = JSON.parse(JSON.stringify(stats));
   noReduction.obelisk_armor_reduction = 1;
   var nr = DD.computeDamage(noReduction, { items: DD.defaultItems(true), contractMode: "maxed", contractsCompleted: 100, targetOb: 62 });

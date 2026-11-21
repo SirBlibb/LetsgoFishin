@@ -334,6 +334,30 @@
     return out;
   }
 
+  // Rows for the "next few OB levels" table.  Uses the same effective armour
+  // and pre-crit threshold as armorCheck.
+  function armorLevels(level, count, scenarioBase, currentBase, reduction) {
+    var start = Math.max(1, Math.floor(asNumber(level, 0)));
+    var total = Math.min(20, Math.max(1, Math.floor(asNumber(count, 5))));
+    var multiplier = Math.max(0, asNumber(reduction, 1));
+    var base = Math.max(0, asNumber(scenarioBase, 0));
+    var current = Math.max(0, asNumber(currentBase, 0));
+    var rows = [];
+
+    for (var i = 0; i < total; i++) {
+      var l = start + i;
+      var armor = obeliskArmor(l) * multiplier;
+      if (!(armor > 0)) continue;
+      rows.push({
+        level: l,
+        armor: armor,
+        scenario: { pass: base > armor, ratio: base / armor },
+        current: { pass: current > armor, ratio: current / armor }
+      });
+    }
+    return rows;
+  }
+
   function ratio(a, b) {
     if (!(b > 0) || !isFinite(a) || !isFinite(b)) return null;
     return a / b;
@@ -521,6 +545,7 @@
     DAMAGE_CONTRACT_INDICES: DAMAGE_CONTRACT_INDICES,
     obeliskArmor: obeliskArmor,
     effectiveArmor: effectiveArmor,
+    armorLevels: armorLevels,
     defaultStats: defaultStats,
     defaultItems: defaultItems,
     activeItemsFromStats: activeItemsFromStats,

@@ -598,9 +598,6 @@
       text = "Manual entry - import an ExportStats JSON on the home page to fill these fields automatically.";
     }
     nodes.status.textContent = text;
-    if (nodes.loadSample) {
-      nodes.loadSample.hidden = state.source === "account" || state.source === "account-edited";
-    }
   }
 
   function update() {
@@ -750,15 +747,6 @@
       if (!state.anglerEquipped) state.anglerFueled = false;
     });
     bindCheck("anglerFueled", "anglerFueled");
-
-    if (nodes.loadSample) {
-      nodes.loadSample.addEventListener("click", function () {
-        if (!global.SAMPLE_EXPORT_V2252) return;
-        applyStats(global.SAMPLE_EXPORT_V2252.stats, "sample", "v2.2.52");
-        fillControls();
-        update();
-      });
-    }
   }
 
   function buildDockSelect() {
@@ -778,7 +766,7 @@
       "droneBase", "droneMulti", "tier2", "tickReduction", "tick3x", "doubleTick",
       "tripleTick", "fiveTick", "anglerEquipped", "anglerFueled", "anglerGrade",
       "anglerLevel", "dockNote", "powerNote", "tickNote", "anglerNote", "hero",
-      "warning", "facts", "timeline", "docks", "loadSample"
+      "warning", "facts", "timeline", "docks"
     ].forEach(function (id) {
       nodes[id] = document.getElementById("legendary-" + id);
     });

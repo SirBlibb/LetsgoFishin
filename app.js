@@ -1021,18 +1021,6 @@
     document.getElementById("btn-parse").addEventListener("click", function () {
       applyImport(ta.value, "pasted JSON");
     });
-    document.getElementById("btn-sample").addEventListener("click", function () {
-      ta.value = JSON.stringify(window.SAMPLE_EXPORT, null, 2);
-      applyImport(window.SAMPLE_EXPORT, "sample export");
-    });
-    var newSample = document.getElementById("btn-sample-new");
-    if (newSample) {
-      newSample.addEventListener("click", function () {
-        if (!window.SAMPLE_EXPORT_V2252) return;
-        ta.value = JSON.stringify(window.SAMPLE_EXPORT_V2252, null, 2);
-        applyImport(window.SAMPLE_EXPORT_V2252, "v2.2.52 sample export");
-      });
-    }
     document.getElementById("btn-clear").addEventListener("click", function () {
       state = FM.defaultInputs();
       importReport = null;
@@ -1052,15 +1040,6 @@
       ta.value = "";
       renderAccountSummary();
       showReport("Reset to defaults and cleared the saved account and tool details. Tracker history was kept.", true);
-    });
-
-    var file = document.getElementById("import-file");
-    file.addEventListener("change", function () {
-      var f = file.files[0];
-      if (!f) return;
-      var rd = new FileReader();
-      rd.onload = function () { ta.value = rd.result; applyImport(rd.result, f.name); };
-      rd.readAsText(f);
     });
 
     // drag & drop anywhere
@@ -1098,7 +1077,11 @@
         var item = btn.closest ? btn.closest("details") : null;
         if (item) item.open = false;
         var ranking = document.getElementById("ranking");
-        if (ranking && ranking.scrollIntoView) ranking.scrollIntoView({ behavior: "smooth", block: "start" });
+        if (ranking && ranking.scrollIntoView) {
+          var reduceMotion = window.matchMedia &&
+            window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+          ranking.scrollIntoView({ behavior: reduceMotion ? "auto" : "smooth", block: "start" });
+        }
       });
     });
   }
@@ -1142,6 +1125,11 @@
       if (!link.classList) return;
       if (active) link.classList.add("active");
       else link.classList.remove("active");
+      if (link.setAttribute) {
+        if (active) link.setAttribute("aria-current", "page");
+        else if (link.removeAttribute) link.removeAttribute("aria-current");
+        else link.setAttribute("aria-current", "false");
+      }
     });
 
     if (document.title !== undefined) {
@@ -1225,7 +1213,8 @@
   }
 
   window.ObeliskApp = {
-    loadAccountRecord: loadAccountRecord
+    loadAccountRecord: loadAccountRecord,
+    applyImport: applyImport
   };
 
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", init);

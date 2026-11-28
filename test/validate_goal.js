@@ -213,7 +213,6 @@ var app = fs.readFileSync(path.join(__dirname, "..", "app.js"), "utf-8");
 });
 check("goaldata.js is loaded", html.indexOf('src="goaldata.js"') >= 0);
 check("goals.js is loaded", html.indexOf('src="goals.js"') >= 0);
-check("nav links to the goal tool", html.indexOf('href="#/goal" data-nav="goal"') >= 0);
 check("home card links to the goal tool", html.indexOf('href="#/goal">Open tool</a>') >= 0);
 check("app routes the goal view", app.indexOf('goal: "view-goal"') >= 0);
 check("app refreshes the goal tool after import", app.indexOf("GoalTool.refreshAccount") >= 0);

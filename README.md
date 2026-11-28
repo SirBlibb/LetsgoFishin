@@ -28,15 +28,13 @@ No build step, no server: open `index.html` in a browser.
 ## Quick start
 
 1. Open `index.html` in any modern browser (works from `file://`). The home page opens at `#/home`.
-2. Paste your ExportStats JSON on the home page and press **Apply JSON**, or click **Load sample**
-   to try it with a real late-game export. You can also drag a `.json` file onto the page.
-   Every successful real import is also recorded as a dated snapshot in the **Tracker**; the
-   built-in sample exports are not recorded.
+2. Paste your ExportStats JSON on the home page and press **Apply JSON**. You can also drag a `.json`
+   file onto the page. Every successful import is recorded as a dated snapshot in the **Tracker**.
 3. Open a tool from the cards (or the header): **Let's Go Fishing** (`#/fishing`),
-   **Legendary Fish** (`#/legendary`), **Bomb comparison** (`#/bombs`), **Goal ETA** (`#/goal`),
-   **Contract planner** (`#/contracts`), **Max damage** (`#/damage`), **Best floor** (`#/floors`,
-   `#/floors/veins`), or **Tracker** (`#/tracker`). A refresh or bookmark reopens
-   the tool directly.
+   **Legendary Fish** (`#/legendary`), **Bomb comparison** (`#/bombs`), **Goal ETA** (`#/goal`,
+   home card only), **Contract planner** (`#/contracts`), **Max damage** (`#/damage`),
+   **Best floor** (`#/floors`, `#/floors/veins`), or **Tracker** (`#/tracker`). A refresh or
+   bookmark reopens the tool directly.
 4. Anything the game did not record (a few bar levels, bundles, statues, etc.) stays at 0 and is
    shown as a manual field - fill those in inside the tool.
 5. In the fishing tool, read the **Ranking** table: it is sorted best-first. `Score/gem` is the
@@ -635,9 +633,8 @@ export:
 
 ## Tracker (`#/tracker`)
 
-The Tracker turns the shared account import into a progress history. Every successful paste,
-file pick, or drag-drop of an ExportStats JSON appends a snapshot. The built-in **Load sample**
-and **Load v2.2.52 sample** buttons are treated as demos and are not recorded. Importing the same
+The Tracker turns the shared account import into a progress history. Every successful paste or
+drag-drop of an ExportStats JSON appends a snapshot. Importing the same
 export twice does not create a duplicate: snapshots are keyed by the export's own `time`, and an
 identical fingerprint is skipped. If the same export date appears again with different stats, the
 new record replaces the old one.
@@ -741,8 +738,8 @@ can add it back.
 | `trackerdata.js` | Export timestamps, snapshots, metric catalogue, chart maths, and IndexedDB/local history (`window.TrackerData`) |
 | `tracker.js` | Tracker UI, graph, snapshot table, and history download/import (`window.TrackerTool`) |
 | `app.js` | View routing + fishing tool UI wiring + account import |
-| `sample.js` | A sample ExportStats export (`window.SAMPLE_EXPORT`, game v2.2.20) |
-| `sample_v2252.js` | A v2.2.52 export (`window.SAMPLE_EXPORT_V2252`), loaded by **Load v2.2.52 sample** |
+| `sample.js` | Test fixture: a sample ExportStats export (`window.SAMPLE_EXPORT`, game v2.2.20) |
+| `sample_v2252.js` | Test fixture: a v2.2.52 export (`window.SAMPLE_EXPORT_V2252`) |
 | `test/validate.js` | Model vs. the sheet's cached default values |
 | `test/validate_export.js` | Export mapping + full-sample run |
 | `test/validate_legendary.js` | Legendary fish power, steps, Angler, tick, distribution, and page wiring |

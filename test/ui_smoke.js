@@ -508,7 +508,7 @@ fishRod = findByRowName(frows, "Fishing Rod");
 check("fish level reverted", fishRod.children[2].textContent === String(startFishLevel));
 
 /* ---- sample import ----------------------------------------------- */
-fire(byId["btn-sample"], "click");
+global.ObeliskApp.applyImport(window.SAMPLE_EXPORT, "sample export");
 rows = rowsOf();
 
 var storedAccount = global.AccountStore.load();
@@ -940,11 +940,10 @@ check("floors route shows the floors view", byId["view-floors"].hidden === false
 check("floors route sets the page title", global.document.title === "Best Floor to Farm - Obelisk Miner Tools");
 check("floors tool renders without an account", global.FloorTool.getState().account === null &&
   byId["floors-hero"].children.length === 1 && byId["floors-ranking"].children.length > 0);
-check("floors manual mode keeps the sample button visible", byId["floors-load-sample"].hidden === false);
 check("floors ore list has all 86 ores", countOptions(byId["floors-ore"]) === 86);
 check("floors vein grid has 21 tiles", byId["floors-vein-grid"].children.length === 21);
 
-fire(byId["btn-sample-new"], "click");
+global.ObeliskApp.applyImport(window.SAMPLE_EXPORT_V2252, "v2.2.52 sample export");
 check("built-in v2.2.52 sample is not recorded in the tracker", global.TrackerTool.getState().snapshots === 2);
 var fs1 = global.FloorTool.getState();
 check("v2.2.52 sample loads into the floor tool", fs1.account === "v2.2.52" && fs1.env.jsonLoaded === true);
@@ -952,7 +951,6 @@ check("floors: Tin on floor 1 with the Void Drone", fs1.result.ranking.length ==
 check("floors hero names the floor", nodeText(byId["floors-hero"]).indexOf("Farm Tin on floor") >= 0 &&
   nodeText(byId["floors-hero"]).indexOf("89.6%") >= 0);
 check("floors alerts list the modifier-floor reminder", nodeText(byId["floors-alerts"]).indexOf("negative ore modifiers") >= 0);
-check("floors sample button hides once an account is loaded", byId["floors-load-sample"].hidden === true);
 check("floors account status names the version", byId["floors-account-status"].textContent.indexOf("v2.2.52") >= 0);
 check("home floors badge shows the account", byId["floors-badge"].textContent === "Account loaded");
 check("floors imported-stats mirror lists the sheet's rows", byId["floors-imported"].children[0].children[0].children[1].children.length === 78);
@@ -1014,7 +1012,8 @@ check("damage none preset turns every item off",
   global.DamageData.ITEMS.every(function (item) { return global.DamageTool.getState().items[item.id] === false; }));
 check("damage consumables increase the maximum hit", damageAllMax > damageNoneMax);
 
-fire(byId["damage-load-sample"], "click");
+global.DamageTool.resetAll();
+global.ObeliskApp.applyImport(window.SAMPLE_EXPORT_V2252, "v2.2.52 sample export");
 check("damage sample loads into the tool", global.DamageTool.getState().source === "account");
 check("damage sample detects active consumables",
   global.DamageTool.getState().result.activeItems.apple === true &&
@@ -1065,7 +1064,7 @@ damageTargetOb.value = "0";
 fire(damageTargetOb, "input");
 
 /* damage stat edits survive a reload and clear on a new import */
-fire(byId["btn-sample"], "click");
+global.ObeliskApp.applyImport(window.SAMPLE_EXPORT, "sample export");
 check("damage import loads the v2.2.20 account",
   global.DamageTool.getState().source === "account" &&
   global.DamageTool.getState().account.version === "v2.2.20");
@@ -1082,14 +1081,13 @@ global.DamageTool.init();
 check("damage reload keeps the stat edit",
   global.DamageTool.getState().overrides.pickaxe_damage === 12345 &&
   global.DamageTool.getState().source === "account-edited");
-fire(byId["btn-sample-new"], "click");
+global.ObeliskApp.applyImport(window.SAMPLE_EXPORT_V2252, "v2.2.52 sample export");
 check("a new import clears the damage stat edits",
   Object.keys(global.DamageTool.getState().overrides).length === 0 &&
   global.DamageTool.getState().source === "account");
 check("legendary tool follows the newer import",
   global.LegendaryTool.getState().source === "account" &&
   Math.abs(global.LegendaryTool.getState().rodPower - 86007.636) < 0.01);
-check("legendary sample hides the sample button", byId["legendary-loadSample"].hidden === true);
 
 /* ---- legendary route ---------------------------------------------- */
 global.window.location = { hash: "#/legendary" };

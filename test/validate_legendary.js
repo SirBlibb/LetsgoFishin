@@ -269,7 +269,7 @@ var app = fs.readFileSync(path.join(__dirname, "..", "app.js"), "utf-8");
 
 [
   "view-legendary",
-  "legendary-account-status", "legendary-loadSample", "legendary-dock", "legendary-ticks",
+  "legendary-account-status", "legendary-dock", "legendary-ticks",
   "legendary-ticksAuto", "legendary-poly", "legendary-dockNote",
   "legendary-rodPower", "legendary-drones", "legendary-droneBase", "legendary-droneMulti",
   "legendary-tier2", "legendary-rodAssigned", "legendary-powerNote",

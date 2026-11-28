@@ -537,16 +537,19 @@
   }
 
   // One clickable square per bar level or floor, coloured by the winner.
-  // cells: [{ n, label, winner, groupStart }]
+  // cells: [{ n, label, winner, groupStart, bpStart }]
   function winnerStrip(cells, selected, what) {
     var wrap = el("div", "bomb-strip-wrap");
     var strip = el("div", "bomb-strip");
     strip.id = "bomb-strip";
     strip.setAttribute("role", "group");
     strip.setAttribute("aria-label", "Winner at every " + what);
+    var selectedCell = null;
+    cells.forEach(function (c) { if (c.n === selected) selectedCell = c; });
     cells.forEach(function (c) {
       var b = el("button", "bomb-cell " + c.winner +
-        (c.groupStart ? " group-start" : "") + (c.n === selected ? " selected" : ""));
+        (c.groupStart ? " group-start" : "") + (c.bpStart ? " bp-start" : "") +
+        (c.n === selected ? " selected" : ""));
       b.type = "button";
       b.id = "bomb-cell-" + c.n;
       b.title = c.label;
@@ -566,6 +569,12 @@
     });
     wrap.appendChild(strip);
 
+    var scale = el("div", "bomb-strip-scale");
+    scale.appendChild(el("span", null,
+      (what === "floor" ? "Floors " : "Levels ") + cells[0].n + "-" + cells[cells.length - 1].n +
+      (what === "floor" ? " grouped by zone" : " grouped by world")));
+    wrap.appendChild(scale);
+
     var legend = el("div", "bomb-strip-legend");
     legend.appendChild(el("span", "bomb-key bop"));
     legend.appendChild(el("span", null, "Bomb of Plenty"));
@@ -575,7 +584,14 @@
       legend.appendChild(el("span", "bomb-key tie"));
       legend.appendChild(el("span", null, "Tie"));
     }
-    legend.appendChild(el("span", "bomb-strip-tip", "Pick a square to compare that " + what + "."));
+    if (cells.some(function (c) { return c.bpStart; })) {
+      legend.appendChild(el("span", "bomb-key bp"));
+      legend.appendChild(el("span", null, "Breakpoint"));
+    }
+    var tipText = selectedCell
+      ? "Selected " + selectedCell.label + ". Pick another square to compare."
+      : "Each square is one " + what + ". Pick one to compare it.";
+    legend.appendChild(el("span", "bomb-strip-tip", tipText));
     wrap.appendChild(legend);
     return wrap;
   }
@@ -687,7 +703,8 @@
         n: r.level,
         winner: r.winner,
         groupStart: i > 0 && r.bar.world !== result.rows[i - 1].bar.world,
-        label: "Level " + r.level + " " + r.bar.name + ": " + winnerName(r.winner) +
+        bpStart: i > 0 && r.winner !== result.rows[i - 1].winner,
+        label: "Level " + r.level + " " + r.bar.name + " - " + winnerName(r.winner) +
           (r.winner === "tie" ? "" : " by " + fmtMargin(r.advantage))
       };
     }), state.level, "bar level"));
@@ -706,7 +723,7 @@
     } else {
       detail = "The breakpoint is above the most expensive known bar.";
     }
-    bp.appendChild(el("p", "hint", detail));
+    bp.appendChild(el("p", "bomb-breakpoint-detail", detail));
 
     if (result.tieCount > 0) {
       bp.appendChild(el("p", "hint", result.tieCount + " level" + (result.tieCount === 1 ? " is" : "s are") +
@@ -846,7 +863,7 @@
         n: f.info.floor,
         winner: f.result.winner,
         groupStart: i > 0 && f.info.zone !== floorRows[i - 1].info.zone,
-        label: "Floor " + f.info.floor + " (" + mixLabel(f.info) + "): " + winnerName(f.result.winner) +
+        label: "Floor " + f.info.floor + " (" + mixLabel(f.info) + ") - " + winnerName(f.result.winner) +
           (f.result.winner === "tie" ? "" : " by " + fmtMargin(f.result.advantage))
       };
     }), state.floor, "floor"));
@@ -865,7 +882,7 @@
     } else {
       detail = "The breakpoint is above the most expensive known bar.";
     }
-    bp.appendChild(el("p", "hint", detail));
+    bp.appendChild(el("p", "bomb-breakpoint-detail", detail));
 
     if (result.totalYield > 1 + 1e-9) {
       bp.appendChild(el("p", "hint",

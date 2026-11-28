@@ -360,7 +360,6 @@
       nodes.accountStatus.textContent = "No account JSON loaded – enter your stats by hand under “Your stats”, " +
         "or import an ExportStats JSON on the home page for exact results, warnings and bomb advice.";
     }
-    if (nodes.loadSample) nodes.loadSample.hidden = !!state.account;
   }
 
   /* ---------------------------------------------------------------- */
@@ -1157,14 +1156,6 @@
       state.selectedFloor = null;
       update();
     });
-    if (nodes.loadSample) nodes.loadSample.addEventListener("click", function () {
-      var b = document.getElementById("btn-sample-new");
-      if (b && typeof b.click === "function") b.click();
-      else if (b) {
-        var hs = b._l && b._l.click;
-        if (hs) hs.forEach(function (h) { h({ preventDefault: function () {} }); });
-      }
-    });
     if (typeof window !== "undefined" && window.addEventListener) {
       window.addEventListener("hashchange", function () {
         var m = modeFromHash();
@@ -1175,7 +1166,6 @@
 
   function cacheNodes() {
     nodes.accountStatus = document.getElementById("floors-account-status");
-    nodes.loadSample = document.getElementById("floors-load-sample");
     nodes.modeOre = document.getElementById("floors-mode-ore");
     nodes.modeVeins = document.getElementById("floors-mode-veins");
     nodes.orePicker = document.getElementById("floors-ore-picker");

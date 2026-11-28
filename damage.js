@@ -234,9 +234,6 @@
   }
 
   function updateSourceNote() {
-    if (nodes.loadSample) {
-      nodes.loadSample.hidden = state.source === "account" || state.source === "account-edited";
-    }
     if (nodes.accountStatus) {
       if (state.source === "account") {
         var accountLabel = state.account && state.account.record ? "your saved account" : "the sample account";
@@ -818,7 +815,6 @@
     if (!DD) return;
 
     nodes.accountStatus = document.getElementById("damage-account-status");
-    nodes.loadSample = document.getElementById("damage-load-sample");
     nodes.scenarioNote = document.getElementById("damage-scenario-note");
     nodes.items = document.getElementById("damage-items");
     nodes.golden = document.getElementById("damage-golden");
@@ -895,19 +891,6 @@
     preset(document.getElementById("damage-items-none"), function () {
       state.items = DD.defaultItems(false);
     });
-
-    var sample = document.getElementById("damage-load-sample");
-    if (sample) {
-      sample.addEventListener("click", function () {
-        if (global.SAMPLE_EXPORT_V2252) {
-          state.overrides = {};
-          state.items = DD.defaultItems(true);
-          state.contractMode = "maxed";
-          state.contractsCompleted = 0;
-          applyAccount({ stats: global.SAMPLE_EXPORT_V2252.stats, version: "v2.2.52 sample" });
-        }
-      });
-    }
 
     renderStatEditor();
     refreshAccount();
